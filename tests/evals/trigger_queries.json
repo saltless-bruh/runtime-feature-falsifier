@@ -1,0 +1,156 @@
+{
+  "version": "1.2",
+  "purpose": "Trigger-description evaluation set. Run each query in clean context multiple times; optimize activation on the train split and verify on validation without changing intent.",
+  "queries": [
+    {
+      "id": "p01",
+      "split": "train",
+      "should_trigger": true,
+      "query": "Audit every user-facing feature and public function exposed by this repo. Build a complete feature inventory first, then run the app and tell me which capabilities are fake, TODO, hardcoded, mock-only, partial, or BTTLP. Do not sample and do not trust tests."
+    },
+    {
+      "id": "p02",
+      "split": "train",
+      "should_trigger": true,
+      "query": "Test the image upload feature with PNG, JPEG, WebP, corrupt files and PDFs through the real app. I want to know whether it actually persists anything."
+    },
+    {
+      "id": "p03",
+      "split": "train",
+      "should_trigger": true,
+      "query": "Run the product and check if the export button is just cosmetic/BTTLP or actually produces the advertised file."
+    },
+    {
+      "id": "p04",
+      "split": "train",
+      "should_trigger": true,
+      "query": "Smoke-audit our CRUD flows against the running service and verify create/update/delete state really changes."
+    },
+    {
+      "id": "p05",
+      "split": "train",
+      "should_trigger": true,
+      "query": "Hunt for hardcoded API behavior by exercising the public endpoints with different valid inputs and checking downstream state."
+    },
+    {
+      "id": "p06",
+      "split": "validation",
+      "should_trigger": true,
+      "query": "Which of these product features are actually usable at runtime? Try to falsify them rather than reading unit tests."
+    },
+    {
+      "id": "p07",
+      "split": "validation",
+      "should_trigger": true,
+      "query": "Check whether search is returning canned fixture results by changing queries and filters in the running app."
+    },
+    {
+      "id": "p08",
+      "split": "validation",
+      "should_trigger": true,
+      "query": "Verify the real authentication workflow end to end and classify mock-only, placeholder, or broken paths."
+    },
+    {
+      "id": "p09",
+      "split": "validation",
+      "should_trigger": true,
+      "query": "Do a whole-system feature reality audit: inventory each claimed workflow/capability, plan exhaustive coverage, run each one, record every attempt, and show concrete counterexamples."
+    },
+    {
+      "id": "p10",
+      "split": "validation",
+      "should_trigger": true,
+      "query": "Exercise the payment sandbox workflow as a user would and determine if the advertised completion state is real or a demo stub."
+    },
+    {
+      "id": "n01",
+      "split": "train",
+      "should_trigger": false,
+      "query": "Run the unit tests and summarize failures."
+    },
+    {
+      "id": "n02",
+      "split": "train",
+      "should_trigger": false,
+      "query": "Fix the failing upload-image test."
+    },
+    {
+      "id": "n03",
+      "split": "train",
+      "should_trigger": false,
+      "query": "Implement the missing upload-image endpoint."
+    },
+    {
+      "id": "n04",
+      "split": "train",
+      "should_trigger": false,
+      "query": "Review this upload handler for code quality and architecture."
+    },
+    {
+      "id": "n05",
+      "split": "train",
+      "should_trigger": false,
+      "query": "Write Playwright E2E tests for the login page."
+    },
+    {
+      "id": "n06",
+      "split": "validation",
+      "should_trigger": false,
+      "query": "Pentest this upload endpoint for remote code execution and parser vulnerabilities."
+    },
+    {
+      "id": "n07",
+      "split": "validation",
+      "should_trigger": false,
+      "query": "Benchmark upload throughput and p95 latency."
+    },
+    {
+      "id": "n08",
+      "split": "validation",
+      "should_trigger": false,
+      "query": "Lint the repository and fix formatting issues."
+    },
+    {
+      "id": "n09",
+      "split": "validation",
+      "should_trigger": false,
+      "query": "List all TODO comments in the codebase."
+    },
+    {
+      "id": "n10",
+      "split": "validation",
+      "should_trigger": false,
+      "query": "Create a mock storage provider so our tests can run offline."
+    },
+    {
+      "id": "p11",
+      "split": "validation",
+      "should_trigger": true,
+      "query": "In Antigravity, audit this entire workspace at runtime. Use plan mode first, inventory every product capability and workflow, then try to falsify all of them without repairing anything."
+    },
+    {
+      "id": "p12",
+      "split": "validation",
+      "should_trigger": true,
+      "query": "Use runtime-feature-falsifier in Gemini CLI to determine whether the upload and retrieval flows are real or just fake-success/hardcoded behavior."
+    },
+    {
+      "id": "n11",
+      "split": "validation",
+      "should_trigger": false,
+      "query": "Configure my Antigravity hooks so Prettier runs after every source edit."
+    },
+    {
+      "id": "n12",
+      "split": "validation",
+      "should_trigger": false,
+      "query": "Rewrite GEMINI.md so Gemini follows our coding style and repository conventions."
+    },
+    {
+      "id": "p13",
+      "split": "validation",
+      "should_trigger": true,
+      "query": "Keep hammering on this suspicious runtime feature without changing the code. If the first failure could be an environment or auditor mistake, form hypotheses and vary the probes until the behavior is confirmed, refuted, blocked, or genuinely inconclusive."
+    }
+  ]
+}

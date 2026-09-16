@@ -1,0 +1,14 @@
+[project]
+name = "runtime-feature-falsifier-cli"
+version = "2.7.0"
+description = "CLI installer and project bootstrapper for Runtime Feature Falsifier Agent Skill"
+requires-python = ">=3.11"
+license = "MIT"
+keywords = ["agent-skills", "codex", "claude", "gemini", "antigravity", "opencode", "runtime-audit"]
+
+[project.scripts]
+rff = "runtime_feature_falsifier_cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

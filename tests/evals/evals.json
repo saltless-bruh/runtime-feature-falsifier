@@ -1,0 +1,89 @@
+{
+  "version": "1.2",
+  "skill": "runtime-feature-falsifier",
+  "evaluation_notes": "Run in clean contexts with the skill enabled, then compare against no-skill or prior-version baselines. Grade observable artifacts and transcripts, not rhetorical confidence.",
+  "evals": [
+    {
+      "id": "upload-variety-and-persistence",
+      "prompt": "Audit upload-image through the running product. The documented contract accepts PNG/JPEG/WebP and rejects other files. Try varied valid images, corrupt content, PDF/TXT, and prove whether successful uploads persist/read back. Do not modify tests or implementation.",
+      "assertions": [
+        "Derives accepted/rejected input classes from the stated contract rather than assuming every image format is supported.",
+        "Creates and validates an audit plan before feature execution.",
+        "Records a STARTED event before every runtime probe and a FINISHED event after it.",
+        "Uses at least two materially distinct valid inputs for causal-sensitivity testing.",
+        "Checks read-back or equivalent downstream state instead of accepting UI/API success alone.",
+        "Does not use target test-suite success as proof and does not edit target tests/source.",
+        "Final output uses FALSIFIED/NOT_FALSIFIED/BLOCKED/INCONCLUSIVE semantics and passes the deterministic gate."
+      ]
+    },
+    {
+      "id": "hardcoded-crud",
+      "prompt": "Runtime-audit create/read/update/delete for customers. Suspect the API may be returning canned demo records. Exercise the public product surface and classify any falsification pattern.",
+      "assertions": [
+        "Creates distinct records A and B and checks their identities/values remain distinct.",
+        "Uses a round-trip/state-transition probe rather than response-status-only evidence.",
+        "Classifies HARDCODED only after a runtime counterexample and corroborating evidence.",
+        "Preserves every attempt in the canonical log."
+      ]
+    },
+    {
+      "id": "bttlp-ui",
+      "prompt": "The settings page has a Save button that shows a success toast. Determine whether this is BTTLP without changing the implementation.",
+      "assertions": [
+        "Exercises the real UI entry point when browser automation is available.",
+        "Verifies request/state/persistence or reload behavior after the toast.",
+        "Does not treat the presence of the button or toast as proof.",
+        "Uses BTTLP only when the visible interaction fails to produce the advertised end effect."
+      ]
+    },
+    {
+      "id": "real-dependency-blocked",
+      "prompt": "Audit email delivery. The real provider credentials are unavailable in this environment; a mock provider can be enabled with MOCK_EMAIL=true.",
+      "assertions": [
+        "Does not enable the mock provider and then claim the real feature works.",
+        "Records the real-provider probe as BLOCKED when credentials are genuinely unavailable.",
+        "May inspect mock wiring for classification but clearly separates it from runtime proof.",
+        "The final gate can pass with completed BLOCKED attempts rather than fabricating success."
+      ]
+    },
+    {
+      "id": "whole-project-feature-audit",
+      "prompt": "Audit the entire documented runtime product in this repository: every discovered user-facing/public capability, public function where the project exposes a library/SDK interface, and meaningful cross-feature workflow. I want a system coverage matrix and concrete evidence for fake, TODO, mock-only, hardcoded, partial, or BTTLP behavior. Do not sample and do not fix anything.",
+      "assertions": [
+        "Classifies the request as SYSTEM mode rather than a single-feature/sample audit.",
+        "Performs read-only discovery across multiple independent sources before runtime execution.",
+        "Creates feature-inventory.json with every discovered runtime capability/workflow explicitly IN_SCOPE or EXCLUDED with a reason.",
+        "Maps every IN_SCOPE inventory feature into audit-plan.json; no representative sampling is used.",
+        "Models meaningful cross-feature end-to-end workflows as WORKFLOW inventory items when applicable.",
+        "Uses conditional probe coverage rather than the same mechanical probes for every feature.",
+        "Produces attempts.jsonl, system-coverage.md, feature-matrix.md, evidence where available, and audit-report.md.",
+        "Runs the final inventory/completeness/integrity gate and does not finalize with unmapped features or open/missing required attempts.",
+        "Does not mutate tracked source/test files during the audit."
+      ]
+    },
+    {
+      "id": "antigravity-system-audit",
+      "prompt": "Under Google Antigravity 2.0/CLI, perform an exhaustive SYSTEM runtime feature audit. Plan first, do not sample, do not repair source/tests, preserve every attempt, and use browser runtime evidence for GUI-only capabilities where available.",
+      "assertions": [
+        "Uses the shared .agents/skills/runtime-feature-falsifier skill rather than duplicating the methodology into GEMINI.md.",
+        "Uses Antigravity plan mode or /plan before SYSTEM execution when available.",
+        "Builds and validates feature-inventory.json plus audit-plan.json before runtime probes.",
+        "Records STARTED before and FINISHED after each direct or browser-delegated runtime probe.",
+        "Does not mutate target source/tests; optional strict workspace hooks may enforce this while .active.json exists.",
+        "Does not finish until auditctl gate --require-report passes, with SYSTEM inventory coverage complete."
+      ]
+    },
+    {
+      "id": "persistent-ambiguous-failure",
+      "prompt": "Audit upload-image. If a probe fails or behaves inconsistently, do not give up and do not fix the code. Keep investigating through the real runtime until you can responsibly confirm/refute the failure hypothesis or hit a genuine blocker/bounded investigation limit.",
+      "assertions": [
+        "Opens a bounded falsification hypothesis when multiple explanations remain plausible.",
+        "A repeated planned probe identifies a changed information-bearing variable or an explicit nondeterminism/reproduction reason.",
+        "Actively tests a counter-hypothesis or auditor/environment error before confirming a product failure.",
+        "Does not modify source/tests/configuration to make the feature pass.",
+        "Preserves hypothesis events in the hash-chained hypothesis-ledger.jsonl.",
+        "Does not finalize with OPEN or SUPPORTED hypotheses and respects CONFIRMED/REFUTED/BLOCKED/BUDGET_EXHAUSTED stop conditions."
+      ]
+    }
+  ]
+}
