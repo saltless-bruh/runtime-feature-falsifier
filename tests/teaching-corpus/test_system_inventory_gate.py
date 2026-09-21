@@ -35,6 +35,20 @@ def feature(fid: str, *, include_startup: bool = False) -> dict:
             "expected": "system runtime starts",
             "effect_checks": [],
             "required": True,
+        }, {
+            "probe_id": "runtime-identity",
+            "probe_intent": "runtime_identity",
+            "contract_relation": "ENVIRONMENT",
+            "expected": "system runtime identity matches expectation",
+            "effect_checks": ["process identity matches"],
+            "required": True,
+        }, {
+            "probe_id": "environment-collision",
+            "probe_intent": "environment_collision",
+            "contract_relation": "ENVIRONMENT",
+            "expected": "system audit environment is isolated",
+            "effect_checks": ["no competing consumers share state"],
+            "required": True,
         }] if include_startup else []) + [{
             "probe_id": f"{fid}-baseline",
             "probe_intent": "baseline_valid",
@@ -63,6 +77,8 @@ def main() -> int:
         inventory_path = audit / "feature-inventory.json"
         plan = json.loads(plan_path.read_text())
         plan["target"]["startup_path"] = "system teaching startup"
+        plan["target"]["runtime_identity_expectation"] = "system teaching runtime"
+        plan["target"]["collision_surfaces"] = ["temporary workspace"]
         plan["features"] = [feature("feature-a", include_startup=True)]
         plan_path.write_text(json.dumps(plan, indent=2) + "\n")
 

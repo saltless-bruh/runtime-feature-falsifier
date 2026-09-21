@@ -29,6 +29,8 @@ def main() -> int:
         plan_path = audit / "audit-plan.json"
         plan = json.loads(plan_path.read_text())
         plan["target"]["startup_path"] = "teaching uploader runtime"
+        plan["target"]["runtime_identity_expectation"] = "teaching uploader runtime process"
+        plan["target"]["collision_surfaces"] = ["temporary audit directory"]
         plan["features"] = [{
             "feature_id": "upload-image",
             "claim": "Different valid images are actually uploaded and retrievable",
@@ -44,6 +46,20 @@ def main() -> int:
                 "contract_relation": "ENVIRONMENT",
                 "expected": "teaching runtime starts",
                 "effect_checks": [],
+                "required": True,
+            }, {
+                "probe_id": "runtime-identity",
+                "probe_intent": "runtime_identity",
+                "contract_relation": "ENVIRONMENT",
+                "expected": "teaching uploader runtime identity matches expectation",
+                "effect_checks": ["process identity matches"],
+                "required": True,
+            }, {
+                "probe_id": "environment-collision",
+                "probe_intent": "environment_collision",
+                "contract_relation": "ENVIRONMENT",
+                "expected": "audit environment is isolated",
+                "effect_checks": ["no competing consumer shares state"],
                 "required": True,
             }, {
                 "probe_id": "upload-baseline",
@@ -71,6 +87,17 @@ def main() -> int:
             "--result", "SURVIVED", "--failure-pattern", "NONE_OBSERVED", "--confidence", "HIGH",
         )
         assert startup_finish.returncode == 0, startup_finish.stdout
+
+
+        for pid, observed, side in [
+            ("runtime-identity", "teaching uploader process matches expectation", "process identity matched"),
+            ("environment-collision", "temporary audit state is isolated", "no competing consumer found"),
+        ]:
+            pre = run("attempt-start", "--audit-dir", str(audit), "--feature-id", "upload-image", "--probe-id", pid, "--repro-command", f"check {pid}")
+            assert pre.returncode == 0, pre.stdout
+            pre_id = json.loads(pre.stdout)["attempt_id"]
+            done = run("attempt-finish", "--audit-dir", str(audit), "--attempt-id", pre_id, "--observed", observed, "--side-effect-check", side, "--result", "SURVIVED", "--failure-pattern", "NONE_OBSERVED", "--confidence", "HIGH")
+            assert done.returncode == 0, done.stdout
 
         start1 = run(
             "attempt-start", "--audit-dir", str(audit),

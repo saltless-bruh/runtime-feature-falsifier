@@ -53,7 +53,7 @@ def ctl(*args: str) -> dict:
 def direct_start(audit: Path, feature_id: str, probe_id: str, action: str, attempt_id: str) -> None:
     args = SimpleNamespace(
         audit_dir=audit, format="json", feature_id=feature_id, probe_id=probe_id,
-        attempt_id=attempt_id, action=action, repro_command=("start teaching HTTP server" if probe_id == "environment-start" else None), precondition=[],
+        attempt_id=attempt_id, action=action, repro_command=("teaching preflight command" if probe_id in {"environment-start","runtime-identity","environment-collision"} else None), precondition=[],
         hypothesis_id=None, changed_variable=None, retry_reason=None, escalation_stage=None
     )
     with contextlib.redirect_stdout(io.StringIO()):
@@ -92,6 +92,22 @@ def main() -> None:
             "action": "Start the teaching HTTP service and verify it accepts connections",
             "expected": "Teaching runtime starts and is reachable",
             "effect_checks": ["HTTP service accepts a request"],
+            "required": True,
+        }, {
+            "probe_id": "runtime-identity",
+            "probe_intent": "runtime_identity",
+            "contract_relation": "ENVIRONMENT",
+            "action": "Identify the teaching HTTP process/server",
+            "expected": "The expected teaching handler is the runtime serving the port",
+            "effect_checks": ["runtime identity matches expected Handler fixture"],
+            "required": True,
+        }, {
+            "probe_id": "environment-collision",
+            "probe_intent": "environment_collision",
+            "contract_relation": "ENVIRONMENT",
+            "action": "Check the isolated ephemeral HTTP port and temp corpus for competing consumers",
+            "expected": "No other worker/test shares mutable teaching runtime state",
+            "effect_checks": ["ephemeral port and temp paths are isolated"],
             "required": True,
         }]
         valid_seen = 0
@@ -145,6 +161,8 @@ def main() -> None:
         ]
         plan = json.loads((audit / "audit-plan.json").read_text())
         plan["target"]["startup_path"] = "start teaching HTTP server via running(Handler)"
+        plan["target"]["runtime_identity_expectation"] = "tests.teaching-corpus.fake_upload_app.Handler on an ephemeral localhost port"
+        plan["target"]["collision_surfaces"] = ["ephemeral TCP port", "temporary corpus directory"]
         plan["features"] = [{
             "feature_id": "upload-image",
             "claim": "Supported image uploads persist and non-images/corrupt inputs are rejected",
@@ -170,6 +188,12 @@ def main() -> None:
                 if probe["probe_id"] == "environment-start":
                     status, _, _ = request(base + "/missing")
                     direct_finish(audit, aid, f"runtime reachable; control status={status}", "HTTP server accepted a connection", result="SURVIVED", pattern="NONE_OBSERVED")
+                    continue
+                if probe["probe_id"] == "runtime-identity":
+                    direct_finish(audit, aid, "teaching Handler is bound to the ephemeral server", "runtime identity matches the in-process Handler fixture", result="SURVIVED", pattern="NONE_OBSERVED")
+                    continue
+                if probe["probe_id"] == "environment-collision":
+                    direct_finish(audit, aid, "ephemeral port and temporary paths have no competing consumers", "audit environment is isolated", result="SURVIVED", pattern="NONE_OBSERVED")
                     continue
                 if probe["probe_id"] == "causal-two-distinct-pngs":
                     a = file_by_name["valid-a.png"]

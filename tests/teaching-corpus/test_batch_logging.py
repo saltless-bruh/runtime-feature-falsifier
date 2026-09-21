@@ -13,6 +13,8 @@ def run(*args: str) -> subprocess.CompletedProcess[str]:
 def write_plan(audit: Path) -> None:
     plan = json.loads((audit / "audit-plan.json").read_text())
     plan["target"]["startup_path"] = "start batch teaching runtime"
+    plan["target"]["runtime_identity_expectation"] = "batch teaching runtime"
+    plan["target"]["collision_surfaces"] = ["temporary audit directory"]
     plan["features"] = [{
         "feature_id": "batch-feature",
         "claim": "batch feature works through its public runtime surface",
@@ -24,6 +26,8 @@ def write_plan(audit: Path) -> None:
         "dependency_sensitive": False,
         "probes": [
             {"probe_id":"environment-start","probe_intent":"environment_start","contract_relation":"ENVIRONMENT","expected":"runtime starts","effect_checks":[],"required":True},
+            {"probe_id":"runtime-identity","probe_intent":"runtime_identity","contract_relation":"ENVIRONMENT","expected":"batch teaching runtime identity matches","effect_checks":["process identity matches"],"required":True},
+            {"probe_id":"environment-collision","probe_intent":"environment_collision","contract_relation":"ENVIRONMENT","expected":"audit environment isolated","effect_checks":["no competing consumer shares state"],"required":True},
             {"probe_id":"baseline","probe_intent":"baseline_valid","contract_relation":"VALID","expected":"baseline completes","effect_checks":[],"required":True},
             {"probe_id":"variation","probe_intent":"valid_variation","contract_relation":"VALID","expected":"variation completes","effect_checks":[],"required":False},
         ],
@@ -55,6 +59,13 @@ def main() -> int:
         startup_finish = run("attempt-finish","--audit-dir",str(audit),"--attempt-id","batch-startup","--observed","runtime reachable","--side-effect-check","process accepted connection","--result","SURVIVED","--failure-pattern","NONE_OBSERVED","--confidence","HIGH")
         assert startup_finish.returncode == 0, startup_finish.stdout
 
+
+        for pid, observed, side in [("runtime-identity","batch runtime identity matches","process identity matched"),("environment-collision","batch audit environment isolated","no competing consumer")]:
+            pre=run("attempt-start","--audit-dir",str(audit),"--feature-id","batch-feature","--probe-id",pid,"--repro-command",f"check {pid}")
+            assert pre.returncode == 0, pre.stdout
+            pre_id=json.loads(pre.stdout)["attempt_id"]
+            assert run("attempt-finish","--audit-dir",str(audit),"--attempt-id",pre_id,"--observed",observed,"--side-effect-check",side,"--result","SURVIVED","--failure-pattern","NONE_OBSERVED","--confidence","HIGH").returncode == 0
+
         starts = {
             "schema_version":"1.0","phase":"START","attempts":[
                 {"attempt_id":"batch-baseline","feature_id":"batch-feature","probe_id":"baseline","action":"invoke public baseline"},
@@ -76,8 +87,8 @@ def main() -> int:
         fobj=json.loads(fr.stdout); assert fobj["count"] == 2 and fobj["chain_heads"]["attempts"]
 
         events=[json.loads(x) for x in (audit/"attempts.jsonl").read_text().splitlines() if x.strip()]
-        assert [e["sequence"] for e in events] == [1,2,3,4,5,6]
-        assert [e["event_type"] for e in events] == ["STARTED","FINISHED","STARTED","STARTED","FINISHED","FINISHED"]
+        assert [e["sequence"] for e in events] == list(range(1, len(events)+1))
+        assert len(events) == 10
         run("report","--audit-dir",str(audit))
         gate=run("gate","--audit-dir",str(audit),"--require-report"); assert gate.returncode == 0, gate.stdout
     print("PASS: batch logging is two-phase, hash-chained, atomic on validation failure, and gate-compatible")

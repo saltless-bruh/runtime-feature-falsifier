@@ -22,6 +22,7 @@ CASES = [
     "test_startup_repro_gate.py",
     "test_reader_locking.py",
     "test_full_json_schema_engine.py",
+    "test_field_hardening.py",
 ]
 
 

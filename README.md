@@ -18,14 +18,14 @@ It is designed to hunt for functionality that is:
 
 > **Core idea:** RFF does not try to prove that a feature is “alive.” It tries to **falsify the claim**. A feature that survives the declared probe matrix is reported as `NOT_FALSIFIED`, never as “proven,” “verified,” or “correct.”
 
-Current release: **v2.7.0**
+Current release: **v2.8.0**
 
 ## At a glance
 
 - **Audit target:** real runtime/product behavior, not test-suite appearance.
 - **Modes:** bounded `FEATURE` audit or exhaustive `SYSTEM` audit.
 - **Persistence:** bounded hypothesis-driven investigation; no blind retries.
-- **Integrity:** hash-chained logs, locked readers/writers, source baseline, schema validation, stale-report detection, deterministic completion gate.
+- **Integrity:** hash-chained logs, locked readers/writers, source baseline, schema validation, stale-report detection, identity/collision preflight, sealed-run policy, deterministic completion gate.
 - **Supported hosts:** Codex CLI, Google Antigravity 2.0, Google Antigravity CLI, Gemini CLI, OpenCode, and Claude Code.
 - **Installer:** `./install.sh` for humans; `rff` for project integration management and automation.
 
@@ -230,7 +230,7 @@ The installer updates the persistent `rff` CLI and opens an interactive wizard.
 Typical flow:
 
 ```text
-Runtime Feature Falsifier v2.7.0
+Runtime Feature Falsifier v2.8.0
 
 Detected agents
   [x] Codex CLI
@@ -548,8 +548,10 @@ flowchart TD
     B --> C[Build audit plan]
     C --> D[Validate plan]
     D --> E[Run environment_start]
-    E -->|SURVIVED| F[Execute runtime probes]
+    E -->|SURVIVED| E2[Verify runtime identity]
     E -->|Blocked| X[Record BLOCKED]
+    E2 --> E3[Collision/isolation check]
+    E3 -->|SURVIVED| F[Execute runtime probes]
     F --> G{Suspicious / ambiguous?}
     G -->|Yes| H[Persistent hypothesis investigation]
     H --> F
@@ -629,11 +631,15 @@ python3 scripts/auditctl.py validate-plan \
   --audit-dir "<project-root>/.runtime-feature-audit"
 ```
 
-## 4. Prove startup health first
+## 4. Run the three-stage preflight
 
-Regular feature probes are rejected until the required `environment_start` attempt has completed as `SURVIVED`.
+Regular feature probes are rejected until all three preflight probes have completed in order:
 
-Startup and dependency-sensitive attempts require reproduction metadata.
+1. `environment_start` — must complete as `SURVIVED`,
+2. `runtime_identity` — verify the actual process/server/container is running the intended app against the declared `runtime_identity_expectation`. A healthy container or `/healthz` response alone is not identity proof,
+3. `environment_collision` — must complete as `SURVIVED`; shared queues, DB schemas, buckets, ports, or tenants that could collide with tests or live workers must be isolated or recorded.
+
+All preflight and dependency-sensitive attempts require reproduction metadata.
 
 This does not cryptographically prove the agent used the intended public surface. Where that distinction matters, prefer stronger transport/runtime evidence such as:
 
@@ -735,6 +741,8 @@ python3 scripts/auditctl.py gate \
 
 A successful completion gate means the audit protocol is internally complete and consistent. It does **not** mean all audited features are healthy.
 
+A passed gate **seals the run**. After remediation, spawn a fresh auditor and initialize a new workspace (for example `.runtime-feature-audit-run2/`) rather than appending to the sealed run.
+
 ---
 
 # Audit artifacts
@@ -770,6 +778,9 @@ RFF provides several layers of integrity checking:
 - semantic audit-plan validation,
 - Git-tracked source baseline comparison,
 - report freshness fingerprints,
+- three-stage preflight enforcement (startup health, runtime identity, environment collision),
+- sealed-run policy preventing workspace reuse after remediation,
+- terminology guard for retrospectives (`auditctl terminology-check`),
 - deterministic final completion gate.
 
 RFF is **tamper-evident, not tamper-proof**. An agent with unrestricted filesystem/shell privileges is not cryptographically sandboxed by this skill.
@@ -1007,11 +1018,12 @@ It also includes regressions for:
 - varied runtime input matrices,
 - SYSTEM anti-sampling,
 - persistent investigation,
-- startup/reproduction requirements,
+- startup/identity/collision preflight and reproduction requirements,
 - batch logging,
 - concurrent writers,
 - locked readers,
 - JSON Schema validation,
+- reporting terminology and sealed workspaces,
 - installer/update layouts,
 - and supported-agent packaging.
 
@@ -1027,7 +1039,7 @@ Example:
 
 ```bash
 uv tool install runtime-feature-falsifier-cli \
-  --from git+https://github.com/<owner>/<repo>.git@v2.7.0
+  --from git+https://github.com/<owner>/<repo>.git@v2.8.0
 ```
 
 Then:
@@ -1046,7 +1058,7 @@ Upgrade from a specific release/source:
 
 ```bash
 rff self upgrade \
-  --from git+https://github.com/<owner>/<repo>.git@v2.7.0
+  --from git+https://github.com/<owner>/<repo>.git@v2.8.0
 ```
 
 Automatic “latest release” discovery is intentionally not claimed until the repository has a canonical public release channel.
@@ -1112,7 +1124,7 @@ RFF is built around a few deliberately strict ideas:
 
 - RFF is not a complete sandbox. An agent with unrestricted shell/filesystem privileges can still attempt mutation; tracked-source baselines, host permissions, hooks, and final gates are defense-in-depth.
 - Hash chaining is tamper-evident, not cryptographically tamper-proof against an actor that controls the entire workspace. Controller chain heads are emitted to the session transcript to strengthen external evidence.
-- A reproduction command and startup probe do not mathematically prove that an agent used the intended public surface. Capture browser/network/CLI transport evidence when that distinction matters.
+- A reproduction command, startup probe, and runtime-identity check do not mathematically prove that an agent used the intended public surface or the intended build. Capture browser/network/CLI transport evidence when that distinction matters.
 - Exhaustive SYSTEM audits can be expensive. Batch logging reduces controller ceremony, but real feature coverage still requires real execution.
 - Feature discovery can be incomplete when product surfaces or credentials are unavailable. Report this explicitly rather than claiming complete coverage.
 

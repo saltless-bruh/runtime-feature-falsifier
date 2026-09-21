@@ -1,4 +1,4 @@
-# Runtime Feature Falsifier v2.7.0 — integration notes
+# Runtime Feature Falsifier v2.8.0 — integration notes
 
 ## v2.6.0 OpenCode integration
 
@@ -70,7 +70,7 @@ Once this project is published to a Git repository/PyPI, the package is structur
 
 ```bash
 uv tool install runtime-feature-falsifier-cli \
-  --from git+https://github.com/<owner>/<repo>.git@v2.7.0
+  --from git+https://github.com/<owner>/<repo>.git@v2.8.0
 
 rff init --here --integration antigravity
 ```
@@ -79,7 +79,7 @@ The CLI also supports explicit-source upgrades:
 
 ```bash
 rff self upgrade --from /path/to/new/runtime-feature-falsifier-release
-rff self upgrade --from git+https://github.com/<owner>/<repo>.git@v2.7.0
+rff self upgrade --from git+https://github.com/<owner>/<repo>.git@v2.8.0
 ```
 
 Automatic `latest` release discovery is intentionally not claimed until there is a canonical published repository/release channel.
@@ -89,14 +89,14 @@ Automatic `latest` release discovery is intentionally not claimed until there is
 v2.4 separates the **installable runtime skill** from **development/evaluation fixtures**.
 
 ```text
-runtime-feature-falsifier-v2.7.0/
+runtime-feature-falsifier-v2.8.0/
 ├── pyproject.toml                  # installable runtime-feature-falsifier-cli package
 ├── setup.py
 ├── src/runtime_feature_falsifier_cli/
 │   ├── cli.py                     # `rff` command
 │   └── payload/                   # wheel-bundled installation payload
 ├── dist/
-│   └── runtime_feature_falsifier_cli-2.7.0-py3-none-any.whl
+│   └── runtime_feature_falsifier_cli-2.8.0-py3-none-any.whl
 ├── runtime-feature-falsifier/      # canonical portable Agent Skill source
 │   ├── SKILL.md
 │   ├── LICENSE

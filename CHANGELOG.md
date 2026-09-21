@@ -1,4 +1,14 @@
 # Changelog
+
+## 2.8.0
+
+- Field-hardening from a real Antigravity audit: mandatory runtime identity and environment-collision preflight.
+- Added `AUDIT_ENVIRONMENT_INTERFERENCE` classification guidance.
+- Added sealed-run policy: remediation/re-audit uses a new workspace and fresh auditor instance.
+- Tightened reporting language and added `auditctl terminology-check` for retrospectives.
+- Corrected Antigravity custom-agent tool manifest and added compatibility regression.
+
+
 ## 2.7.0
 
 - Split Google Antigravity support into first-class `antigravity2` (desktop/IDE) and `antigravity-cli` (`agy`) integrations while sharing one workspace skill/auditor payload.

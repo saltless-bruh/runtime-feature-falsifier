@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the v2.7.0 distribution and the cross-harness installable Agent Skill."""
+"""Validate the v2.8.0 distribution and the cross-harness installable Agent Skill."""
 from __future__ import annotations
 
 import json
@@ -75,6 +75,7 @@ def main() -> int:
         "references/ANTIGRAVITY-CLI.md",
         "references/PERSISTENT-INVESTIGATION.md",
         "references/OPENCODE.md",
+        "references/AUDIT-ENVIRONMENT.md",
         "agents/openai.yaml",
         "vendor/fastjsonschema/__init__.py",
         "licenses/fastjsonschema-LICENSE",
@@ -133,8 +134,8 @@ def main() -> int:
             errors.append(f"missing distribution resource: {rel}")
 
     version = (DIST_ROOT / "VERSION").read_text(encoding="utf-8").strip() if (DIST_ROOT / "VERSION").exists() else ""
-    if version != "2.7.0":
-        errors.append(f"VERSION must be 2.7.0; found {version!r}")
+    if version != "2.8.0":
+        errors.append(f"VERSION must be 2.8.0; found {version!r}")
     skill_version_path = SKILL_ROOT / "VERSION"
     if not skill_version_path.exists():
         errors.append("installable skill missing VERSION marker used for upgrade detection")
@@ -247,6 +248,9 @@ def main() -> int:
     for forbidden in ("  - write_to_file", "  - replace_file_content", "  - multi_replace_file_content"):
         if forbidden in google_agent:
             errors.append(f"Antigravity dedicated auditor must not directly expose mutating file tool: {forbidden.strip()}")
+    for forbidden_tool in ("list_permissions", "ask_permission"):
+        if forbidden_tool in google_agent:
+            errors.append(f"Antigravity custom auditor references non-existent tool discovered in field audit: {forbidden_tool}")
 
     google_ref = (SKILL_ROOT / "references/GOOGLE-ANTIGRAVITY.md").read_text(encoding="utf-8")
     agy_ref = (SKILL_ROOT / "references/ANTIGRAVITY-CLI.md").read_text(encoding="utf-8")
@@ -280,12 +284,18 @@ def main() -> int:
         'msvcrt',
         'chain_heads',
         'startup health has not completed SURVIVED',
+        'runtime_identity',
+        'environment_collision',
+        'runtime_identity_expectation',
+        'AUDIT_ENVIRONMENT_INTERFERENCE',
+        'terminology-check',
+        'audit workspace is sealed',
         'import fastjsonschema',
         'return _read_events_unlocked(log_path)',
         'with exclusive_lock(_jsonl_lock_path(log_path))',
     ):
         if marker not in ctl_text:
-            errors.append(f"auditctl missing v2.7.0 hardening marker: {marker}")
+            errors.append(f"auditctl missing v2.8.0 hardening marker: {marker}")
 
     if 'def _json_type_ok(' in ctl_text:
         errors.append("auditctl still contains the retired hand-written JSON Schema mini-validator")

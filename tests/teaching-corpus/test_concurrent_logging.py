@@ -10,8 +10,10 @@ def main()->int:
   with tempfile.TemporaryDirectory() as td:
     project=Path(td)/"project"; project.mkdir(); audit=project/".runtime-feature-audit"
     assert run("init","--audit-dir",str(audit),"--target-root",str(project)).returncode==0
-    plan=json.loads((audit/"audit-plan.json").read_text()); plan["target"]["startup_path"]="concurrent teaching startup"
+    plan=json.loads((audit/"audit-plan.json").read_text()); plan["target"]["startup_path"]="concurrent teaching startup"; plan["target"]["runtime_identity_expectation"]="teaching CLI runtime"; plan["target"]["collision_surfaces"]=["temporary audit directory"]
     probes=[{"probe_id":"environment-start","probe_intent":"environment_start","contract_relation":"ENVIRONMENT","expected":"runtime starts","effect_checks":[],"required":True},
+            {"probe_id":"runtime-identity","probe_intent":"runtime_identity","contract_relation":"ENVIRONMENT","expected":"expected teaching runtime is active","effect_checks":["process identity matches teaching runtime"],"required":True},
+            {"probe_id":"environment-collision","probe_intent":"environment_collision","contract_relation":"ENVIRONMENT","expected":"no shared mutable audit state","effect_checks":["temporary audit directory is isolated"],"required":True},
             {"probe_id":"baseline","probe_intent":"baseline_valid","contract_relation":"VALID","expected":"baseline works","effect_checks":[],"required":True}]
     probes += [{"probe_id":f"parallel-{i}","probe_intent":"valid_variation","contract_relation":"VALID","expected":f"parallel probe {i} works","effect_checks":[],"required":False} for i in range(12)]
     plan["features"]=[{"feature_id":"parallel-feature","claim":"parallel feature works","claim_source":"teaching","entry_points":["CLI"],"expected_end_effects":["observable completion"],"input_sensitive":False,"stateful":False,"dependency_sensitive":False,"probes":probes}]
@@ -19,6 +21,10 @@ def main()->int:
     # startup first
     s=run("attempt-start","--audit-dir",str(audit),"--feature-id","parallel-feature","--probe-id","environment-start","--repro-command","parallel-runtime --serve"); aid=json.loads(s.stdout)["attempt_id"]
     assert run("attempt-finish","--audit-dir",str(audit),"--attempt-id",aid,"--observed","reachable","--result","SURVIVED","--failure-pattern","NONE_OBSERVED","--confidence","HIGH").returncode==0
+    # runtime identity then environment isolation
+    for pid, observed, side in [("runtime-identity","teaching CLI runtime active","process identity matches"),("environment-collision","temporary audit state isolated","no competing consumer")]:
+      s=run("attempt-start","--audit-dir",str(audit),"--feature-id","parallel-feature","--probe-id",pid,"--repro-command",f"check {pid}"); assert s.returncode==0, s.stdout; aid=json.loads(s.stdout)["attempt_id"]
+      assert run("attempt-finish","--audit-dir",str(audit),"--attempt-id",aid,"--observed",observed,"--side-effect-check",side,"--result","SURVIVED","--failure-pattern","NONE_OBSERVED","--confidence","HIGH").returncode==0
     # baseline first too, so final gate can pass if wanted
     s=run("attempt-start","--audit-dir",str(audit),"--feature-id","parallel-feature","--probe-id","baseline"); aid=json.loads(s.stdout)["attempt_id"]
     assert run("attempt-finish","--audit-dir",str(audit),"--attempt-id",aid,"--observed","works","--result","SURVIVED","--failure-pattern","NONE_OBSERVED","--confidence","HIGH").returncode==0

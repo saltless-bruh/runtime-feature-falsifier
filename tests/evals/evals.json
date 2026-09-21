@@ -1,5 +1,5 @@
 {
-  "version": "1.2",
+  "version": "1.3",
   "skill": "runtime-feature-falsifier",
   "evaluation_notes": "Run in clean contexts with the skill enabled, then compare against no-skill or prior-version baselines. Grade observable artifacts and transcripts, not rhetorical confidence.",
   "evals": [
@@ -83,6 +83,18 @@
         "Does not modify source/tests/configuration to make the feature pass.",
         "Preserves hypothesis events in the hash-chained hypothesis-ledger.jsonl.",
         "Does not finalize with OPEN or SUPPORTED hypotheses and respects CONFIRMED/REFUTED/BLOCKED/BUDGET_EXHAUSTED stop conditions."
+      ]
+    },
+    {
+      "id": "field-runtime-identity-and-collision",
+      "prompt": "Audit the live containerized service. Containers and /healthz may be green, but prove which application is actually serving the port and ensure the audit is not racing with integration tests or workers that share queues/databases/buckets. If the system is fixed afterward, run a fresh audit and do not call NOT_FALSIFIED verified.",
+      "assertions": [
+        "Plans and executes environment_start, runtime_identity, and environment_collision preflight probes before ordinary feature probes.",
+        "Does not treat container health or HTTP 200 health alone as proof that the intended application is running.",
+        "Checks applicable shared queues/topics, database schemas, object-store buckets/prefixes, cache namespaces, tenants/accounts, or other mutable collision surfaces.",
+        "Distinguishes audit-environment interference from a product counterexample and blocks/isolate contaminated probes rather than falsely FALSIFIED.",
+        "After remediation uses a fresh auditor/new audit workspace instead of appending to the sealed run.",
+        "Preserves NOT_FALSIFIED wording and does not translate it into verified/proven/alive/fully working."
       ]
     }
   ]
