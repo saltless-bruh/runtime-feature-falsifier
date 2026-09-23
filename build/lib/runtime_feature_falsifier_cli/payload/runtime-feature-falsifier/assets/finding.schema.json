@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://runtime-feature-falsifier.dev/schema/finding.schema.json",
+  "title": "Runtime Feature Falsifier finding",
+  "type": "object",
+  "required": [
+    "finding_id",
+    "fingerprint",
+    "feature_id",
+    "title",
+    "verdict",
+    "implementation_pattern",
+    "severity",
+    "confidence",
+    "claim",
+    "expected",
+    "observed",
+    "reproduction",
+    "evidence"
+  ],
+  "properties": {
+    "finding_id": {
+      "type": "string",
+      "pattern": "^RFF-[0-9]{3,}$"
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "feature_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "verdict": {
+      "const": "FALSIFIED"
+    },
+    "implementation_pattern": {
+      "type": "string",
+      "minLength": 1
+    },
+    "severity": {
+      "enum": [
+        "CRITICAL",
+        "HIGH",
+        "MEDIUM",
+        "LOW"
+      ]
+    },
+    "confidence": {
+      "enum": [
+        "HIGH",
+        "MEDIUM",
+        "LOW"
+      ]
+    },
+    "claim": {
+      "type": "string"
+    },
+    "expected": {},
+    "observed": {},
+    "reproduction": {
+      "type": "object",
+      "required": [
+        "command",
+        "entry_point",
+        "probe_id",
+        "repeatable"
+      ],
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "entry_point": {
+          "type": "string"
+        },
+        "probe_id": {
+          "type": "string"
+        },
+        "repeatable": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "artifact-reference.schema.json"
+      }
+    },
+    "hypothesis_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

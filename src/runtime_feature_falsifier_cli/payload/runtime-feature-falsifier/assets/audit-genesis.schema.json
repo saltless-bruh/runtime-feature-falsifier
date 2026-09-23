@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://runtime-feature-falsifier.dev/schema/audit-genesis.schema.json",
+  "title": "Runtime Feature Falsifier audit genesis",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "audit_id",
+    "audit_mode",
+    "created_at_utc",
+    "target_root",
+    "tracked_source_snapshot_format",
+    "tracked_source_baseline_jcs_sha256",
+    "baseline_provenance"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "audit_id": {"type": "string", "minLength": 1},
+    "audit_mode": {"enum": ["FEATURE", "SYSTEM"]},
+    "created_at_utc": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|\\+00:00)$"
+    },
+    "target_root": {"type": "string", "minLength": 1},
+    "tracked_source_snapshot_format": {
+      "enum": ["rff-git-worktree-v2", "legacy-content-only"]
+    },
+    "tracked_source_baseline_jcs_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "baseline_provenance": {
+      "enum": ["v2.9.5-init", "legacy-baseline-unbound-at-migration"]
+    }
+  },
+  "additionalProperties": false
+}

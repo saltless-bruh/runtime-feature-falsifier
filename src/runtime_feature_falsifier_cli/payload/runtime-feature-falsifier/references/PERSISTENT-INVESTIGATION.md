@@ -20,8 +20,7 @@ The deterministic controller rejects a repeated probe that supplies neither.
 Open a hypothesis when observed behavior has at least two plausible explanations, when a failure might be an auditor/environment mistake, or when behavior suggests a superficial implementation such as hardcoding or mock-only execution.
 
 ```bash
-python3 scripts/auditctl.py hypothesis-open \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
+rff audit hypothesis open \
   --feature-id upload-image \
   --statement "The uploader ignores file content and returns one canned artifact" \
   --trigger-attempt-id att-... \
@@ -43,8 +42,7 @@ Hypothesis states:
 Update immediately after informative evidence:
 
 ```bash
-python3 scripts/auditctl.py hypothesis-update \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
+rff audit hypothesis update \
   --hypothesis-id hyp-... \
   --status SUPPORTED \
   --evidence-for "Two distinct PNGs returned the same artifact ID" \

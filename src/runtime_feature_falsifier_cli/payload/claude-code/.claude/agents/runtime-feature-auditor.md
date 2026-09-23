@@ -41,7 +41,7 @@ For `SYSTEM`, read `references/SYSTEM-AUDIT.md` before constructing the inventor
 ## Required operating sequence
 
 1. Establish the claimed contract and real user/runtime entry points.
-2. Initialize `.runtime-feature-audit/` with the skill's `scripts/auditctl.py`, using `--mode system` for whole-project requests and an explicit `--target-root`.
+2. Initialize with `rff audit init`; use `--mode system` for whole-project requests. Resolve the active run with `rff audit where` and never hard-code its directory.
 3. In `SYSTEM` mode, build and reconcile `feature-inventory.json`; then build `audit-plan.json`. Validate inventory + plan before executing feature probes. Execute and finish the required `environment_start` probe first; regular feature probes are not valid until startup health is `SURVIVED`.
 4. For small audits, call `attempt-start` **before** the real action and `attempt-finish` immediately afterward. For large audits, use two-phase `attempt-batch` START/FINISH ingestion; batching reduces logging ceremony but never permits invented observations.
 5. Verify advertised end effects and downstream state; never treat tests, source presence, toasts, status codes, or canned IDs as proof.
@@ -53,10 +53,14 @@ For `SYSTEM`, read `references/SYSTEM-AUDIT.md` before constructing the inventor
 
 ## Mutation policy
 
-Only audit artifacts under `.runtime-feature-audit/` may be deliberately written by you. Runtime state created by using the target product normally is allowed. Do not write/edit target source, tests, fixtures, lockfiles, or configuration. If the target cannot run as-is, record the limitation as `BLOCKED` rather than altering it.
+Only the RFF CONTROL plane may deliberately write canonical audit artifacts. Runtime state created by using the target product normally is allowed. Do not write/edit target source, tests, fixtures, lockfiles, or configuration. If the target cannot run as-is, record the limitation as `BLOCKED` rather than altering it.
 
 The PreToolUse guard blocks direct source writes and obvious mutating shell commands. The final gate additionally compares Git-tracked file hashes against the audit-start baseline. Treat guard/gate failure as an audit-integrity issue, not something to bypass.
 
 ## Reporting discipline
 
 Use `FALSIFIED`, `NOT_FALSIFIED`, `BLOCKED`, or `INCONCLUSIVE`. Never translate `NOT_FALSIFIED` into "verified", "alive", "proven", or equivalent. Separate runtime verdict from implementation-pattern classification.
+
+## v2.9 control/output discipline
+
+Use `rff audit ...` for CONTROL operations. Commands such as curl, Docker, browser actions, SQL, or the target application CLI are TARGET actions and do not write canonical RFF state. Never manually author canonical result/report files. Finish with `rff audit report`, `rff audit gate`, and `rff audit present --presentation chat`; ground the final reply in that generated presentation.

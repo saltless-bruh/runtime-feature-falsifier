@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the v2.8.0 distribution and the cross-harness installable Agent Skill."""
+"""Validate the v2.9.5 distribution and the cross-harness installable Agent Skill."""
 from __future__ import annotations
 
 import json
@@ -48,8 +48,8 @@ def main() -> int:
         errors.append("SKILL.md must expand BTTLP at first-use/discovery text")
     if "Normative authority" not in text:
         errors.append("SKILL.md must declare itself normative for duplicated audit semantics")
-    if "py -3 scripts/auditctl.py" not in text:
-        errors.append("SKILL.md must document Windows py -3 fallback")
+    if "rff audit" not in text:
+        errors.append("SKILL.md must document the public rff audit control plane")
 
     # All local links from SKILL.md must resolve inside the installable skill.
     for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)", text):
@@ -66,6 +66,14 @@ def main() -> int:
         "assets/attempt-batch.schema.json",
         "assets/feature-inventory.schema.json",
         "assets/hypothesis-event.schema.json",
+        "assets/audit-result.schema.json",
+        "assets/finding.schema.json",
+        "assets/findings.schema.json",
+        "assets/feature-result.schema.json",
+        "assets/artifact-reference.schema.json",
+        "assets/result-manifest.schema.json",
+        "assets/audit-seal.schema.json",
+        "assets/audit-genesis.schema.json",
         "references/FALSIFICATION-METHOD.md",
         "references/EVIDENCE-AND-VERDICTS.md",
         "references/ATTEMPT-LOGGING.md",
@@ -76,8 +84,11 @@ def main() -> int:
         "references/PERSISTENT-INVESTIGATION.md",
         "references/OPENCODE.md",
         "references/AUDIT-ENVIRONMENT.md",
+        "references/CONTROL-PLANE-OUTPUT.md",
         "agents/openai.yaml",
         "vendor/fastjsonschema/__init__.py",
+        "vendor/fastjsonschema/draft2019.py",
+        "vendor/fastjsonschema/version.py",
         "licenses/fastjsonschema-LICENSE",
     ]
     for rel in runtime_required:
@@ -119,6 +130,20 @@ def main() -> int:
         "tests/evals/trigger_queries.json",
         "tests/tools/generate_upload_corpus.py",
         "tests/teaching-corpus/run_all_examples.py",
+        "tests/teaching-corpus/test_v290_structured_output.py",
+        "tests/teaching-corpus/test_v290_cli_runs.py",
+        "tests/teaching-corpus/test_v292_contract_integrity.py",
+        "tests/teaching-corpus/test_v294_seal_provenance.py",
+        "tests/teaching-corpus/test_v295_lifecycle_atomicity.py",
+        "tests/fixtures/v294-git-sealed/.complete.json",
+        "tests/fixtures/v294-git-sealed/audit-result.json",
+        "tests/fixtures/v294-git-sealed/result-manifest.json",
+        "tests/fixtures/v294-git-sealed/tracked-source-baseline.json",
+        "tests/fixtures/v293-sealed/.complete.json",
+        "tests/fixtures/v293-sealed/audit-result.json",
+        "tests/fixtures/v293-sealed/result-manifest.json",
+        "tests/tools/schema_oracle_ci.py",
+        "tests/tools/schema_conformance_ci.sh",
         "claude-code/.claude/agents/runtime-feature-auditor.md",
         "claude-code/.claude/runtime-feature-falsifier-hooks/claude_pretool_guard.py",
         "claude-code/.claude/runtime-feature-falsifier-hooks/claude_stop_gate.py",
@@ -134,8 +159,8 @@ def main() -> int:
             errors.append(f"missing distribution resource: {rel}")
 
     version = (DIST_ROOT / "VERSION").read_text(encoding="utf-8").strip() if (DIST_ROOT / "VERSION").exists() else ""
-    if version != "2.8.0":
-        errors.append(f"VERSION must be 2.8.0; found {version!r}")
+    if version != "2.9.5":
+        errors.append(f"VERSION must be 2.9.5; found {version!r}")
     skill_version_path = SKILL_ROOT / "VERSION"
     if not skill_version_path.exists():
         errors.append("installable skill missing VERSION marker used for upgrade detection")
@@ -156,6 +181,58 @@ def main() -> int:
         except Exception as exc:
             errors.append(f"invalid JSON {rel}: {exc}")
 
+    result_schemas = [
+        "assets/audit-result.schema.json",
+        "assets/finding.schema.json",
+        "assets/findings.schema.json",
+        "assets/feature-result.schema.json",
+        "assets/artifact-reference.schema.json",
+        "assets/result-manifest.schema.json",
+        "assets/audit-seal.schema.json",
+        "assets/audit-genesis.schema.json",
+    ]
+    vendor = SKILL_ROOT / "vendor"
+    if str(vendor) not in sys.path:
+        sys.path.insert(0, str(vendor))
+    try:
+        import fastjsonschema
+    except Exception as exc:
+        errors.append(f"release validator cannot import bundled fastjsonschema: {exc}")
+    else:
+        if getattr(fastjsonschema, "VERSION", None) != "2.22.2":
+            errors.append(
+                f"bundled fastjsonschema must be 2.22.2; found {getattr(fastjsonschema, 'VERSION', None)!r}"
+            )
+        def local_handler(uri: str):
+            from urllib.parse import urlparse
+            parsed = urlparse(uri)
+            if parsed.scheme in {"http", "https"} and parsed.netloc != "runtime-feature-falsifier.dev":
+                raise ValueError(f"remote schema host is not permitted: {uri}")
+            name = Path(parsed.path).name
+            candidate = (SKILL_ROOT / "assets" / name).resolve()
+            candidate.relative_to((SKILL_ROOT / "assets").resolve())
+            return json.loads(candidate.read_text(encoding="utf-8"))
+
+        for rel in result_schemas:
+            try:
+                schema_doc = json.loads((SKILL_ROOT / rel).read_text(encoding="utf-8"))
+                if schema_doc.get("$schema") != "http://json-schema.org/draft-07/schema#":
+                    errors.append(f"{rel} must declare JSON Schema Draft 7")
+                fastjsonschema.compile(
+                    schema_doc,
+                    handlers={"https": local_handler, "http": local_handler},
+                    use_default=False,
+                )
+            except Exception as exc:
+                errors.append(f"invalid bundled Draft 7 contract {rel}: {exc}")
+
+    # Normative SKILL shell blocks must identify their semantic plane.
+    skill_lines = text.splitlines()
+    for idx, raw in enumerate(skill_lines):
+        if raw.strip() == "```bash":
+            context = " ".join(skill_lines[max(0, idx-3):idx]).upper()
+            if not any(label in context for label in ("CONTROL", "TARGET", "ILLUSTRATION")):
+                errors.append(f"SKILL.md bash block at line {idx+1} lacks CONTROL/TARGET/ILLUSTRATION label")
 
     # CLI package metadata and embedded payload must match the release source.
     pyproject = (DIST_ROOT / "pyproject.toml").read_text(encoding="utf-8") if (DIST_ROOT / "pyproject.toml").exists() else ""
@@ -252,6 +329,13 @@ def main() -> int:
         if forbidden_tool in google_agent:
             errors.append(f"Antigravity custom auditor references non-existent tool discovered in field audit: {forbidden_tool}")
 
+    for agent_path in (opencode_agent_path, google_agent_path, DIST_ROOT / "claude-code/.claude/agents/runtime-feature-auditor.md"):
+        if agent_path.exists():
+            agent_text = agent_path.read_text(encoding="utf-8")
+            for marker in ("rff audit", "rff audit where", "rff audit report", "rff audit gate", "rff audit present"):
+                if marker not in agent_text:
+                    errors.append(f"{agent_path.name} missing v2.9 CONTROL/result marker: {marker}")
+
     google_ref = (SKILL_ROOT / "references/GOOGLE-ANTIGRAVITY.md").read_text(encoding="utf-8")
     agy_ref = (SKILL_ROOT / "references/ANTIGRAVITY-CLI.md").read_text(encoding="utf-8")
     if ".agents/skills/runtime-feature-falsifier" not in google_ref or ".agents/agents/runtime-feature-auditor" not in google_ref:
@@ -263,6 +347,9 @@ def main() -> int:
     for marker in ('"antigravity2"', '"antigravity-cli"', 'GOOGLE_CLIENTS', '--antigravity-cli', '--antigravity2'):
         if marker not in cli_source:
             errors.append(f"rff CLI missing split Antigravity integration marker: {marker}")
+    for marker in ("cmd_audit", "cmd_config", "audit.output_dir", "--allow-deep-output", "active.json", "latest.json", "_uuid7", "RFF_OUTPUT_LOCATION_CHANGED"):
+        if marker not in cli_source:
+            errors.append(f"rff CLI missing v2.9 control/output marker: {marker}")
 
     help_env = dict(__import__("os").environ)
     help_env["PYTHONDONTWRITEBYTECODE"] = "1"
@@ -272,7 +359,7 @@ def main() -> int:
         text=True,
         env=help_env,
     )
-    if help_proc.returncode != 0 or "attempt-start" not in help_proc.stdout or "attempt-batch" not in help_proc.stdout or "hypothesis-open" not in help_proc.stdout or "investigation-status" not in help_proc.stdout or "gate" not in help_proc.stdout:
+    if help_proc.returncode != 0 or any(marker not in help_proc.stdout for marker in ("attempt-start", "attempt-batch", "hypothesis-open", "investigation-status", "present", "compare", "policy", "export", "gate")):
         errors.append("auditctl --help failed or is incomplete")
     ctl_text = (SKILL_ROOT / "scripts/auditctl.py").read_text(encoding="utf-8")
     for marker in (
@@ -290,15 +377,45 @@ def main() -> int:
         'AUDIT_ENVIRONMENT_INTERFERENCE',
         'terminology-check',
         'audit workspace is sealed',
+        'audit-result.json',
+        'result-manifest.json',
+        'RFC8785-JCS-float-free-profile',
+        'cmd_present',
+        'cmd_compare',
+        'cmd_policy',
+        'cmd_export',
+        'severity',
         'import fastjsonschema',
         'return _read_events_unlocked(log_path)',
         'with exclusive_lock(_jsonl_lock_path(log_path))',
+        'strict_json_loads',
+        '_reject_unsafe_jcs_integers',
+        '_result_semantic_errors',
+        '_expected_manifest_inputs',
+        '_seal_metadata_errors',
+        'seal_metadata',
+        'workspace_locked_command',
+        'active_mutation_command',
+        '_build_audit_genesis',
+        '_genesis_integrity_errors',
+        '_ledger_integrity_errors',
+        '_partial_migration_commit_context',
+        '_validated_compare_result',
+        'load_schema("audit-genesis.schema.json")',
     ):
         if marker not in ctl_text:
-            errors.append(f"auditctl missing v2.8.0 hardening marker: {marker}")
+            errors.append(f"auditctl missing required hardening marker: {marker}")
 
     if 'def _json_type_ok(' in ctl_text:
         errors.append("auditctl still contains the retired hand-written JSON Schema mini-validator")
+    for marker in ('def _local_schema_handler(', 'use_default=False', 'load_schema("audit-result.schema.json")', 'load_schema("findings.schema.json")', 'load_schema("result-manifest.schema.json")', 'load_schema("audit-seal.schema.json")', 'load_schema("audit-genesis.schema.json")'):
+        if marker not in ctl_text:
+            errors.append(f"auditctl missing self-contained result-validation marker: {marker}")
+    for py in [DIST_ROOT / "tests" / "tools" / "validate_bundle.py", *list((DIST_ROOT / "tests" / "teaching-corpus").glob("*.py"))]:
+        if py.exists():
+            py_text = py.read_text(encoding="utf-8")
+            if re.search(r"(?m)^\s*(?:from\s+jsonschema\b|import\s+jsonschema\b)", py_text):
+                errors.append(f"external jsonschema dependency leaked into self-test/release path: {py.relative_to(DIST_ROOT)}")
 
     leaked_bytecode = [str(x.relative_to(DIST_ROOT)) for x in DIST_ROOT.rglob("*.pyc")]
     leaked_caches = [str(x.relative_to(DIST_ROOT)) for x in DIST_ROOT.rglob("__pycache__") if x.is_dir()]

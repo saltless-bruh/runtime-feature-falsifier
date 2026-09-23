@@ -1,35 +1,49 @@
 #!/usr/bin/env python3
-"""Optional Antigravity PreInvocation reminder while an audit is active."""
+"""Optional Antigravity PreInvocation reminder while an RFF audit is active."""
 from __future__ import annotations
-import json
-import sys
+import json, sys
 from pathlib import Path
 
+def resolve_active_audit(root: Path) -> Path | None:
+    output = ".runtime-feature-audit"
+    cfg = root / ".rff.toml"
+    if cfg.is_file():
+        try:
+            import tomllib
+            data=tomllib.loads(cfg.read_text(encoding="utf-8"))
+            value=(data.get("audit") or {}).get("output_dir")
+            if isinstance(value,str) and value.strip(): output=value.strip()
+        except Exception:
+            return None
+    out=(root/output).resolve(strict=False)
+    pointer=out/"active.json"
+    if pointer.is_file():
+        try:
+            info=json.loads(pointer.read_text(encoding="utf-8"))
+            run=(out/str(info.get("path",""))).resolve(strict=False)
+            run.relative_to(out)
+            if (run/".active.json").is_file(): return run
+        except Exception:
+            return None
+    if (out/".active.json").is_file(): return out
+    return None
 
-def main() -> int:
-    try:
-        payload = json.load(sys.stdin)
+def main()->int:
+    try: payload=json.load(sys.stdin)
     except Exception:
-        print("{}")
-        return 0
-    paths = payload.get("workspacePaths") or []
+        print("{}"); return 0
+    paths=payload.get("workspacePaths") or []
     if not paths:
-        print("{}")
-        return 0
-    root = Path(paths[0]).resolve()
-    active = root / ".runtime-feature-audit" / ".active.json"
-    if not active.exists():
-        print("{}")
-        return 0
-    msg = (
-        "Runtime Feature Falsifier audit is ACTIVE. Keep the target source/tests/config unchanged; "
-        "use the loaded runtime-feature-falsifier methodology, preserve STARTED+FINISHED attempt logging, "
-        "and do not stop until auditctl gate --require-report passes. If context was compacted, re-read SKILL.md "
-        "and the required reference for the current phase before continuing."
+        print("{}"); return 0
+    root=Path(paths[0]).resolve()
+    if resolve_active_audit(root) is None:
+        print("{}"); return 0
+    msg=(
+      "Runtime Feature Falsifier audit is ACTIVE. Keep target source/tests/config unchanged; "
+      "use `rff audit ...` for CONTROL operations, distinguish TARGET commands from RFF tools, "
+      "and do not manually write canonical result/report files. Finish with `rff audit report`, "
+      "`rff audit gate`, then ground the final reply in `rff audit present`."
     )
-    print(json.dumps({"injectSteps": [{"ephemeralMessage": msg}]}))
-    return 0
+    print(json.dumps({"injectSteps":[{"ephemeralMessage":msg}]})); return 0
 
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+if __name__=="__main__": raise SystemExit(main())

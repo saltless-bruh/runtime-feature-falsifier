@@ -1,0 +1,485 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://runtime-feature-falsifier.dev/schema/audit-result.schema.json",
+  "title": "Runtime Feature Falsifier canonical audit result",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "producer",
+    "audit",
+    "target",
+    "preflight",
+    "coverage",
+    "verdict_counts",
+    "features",
+    "findings",
+    "hypotheses",
+    "integrity",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "producer": {
+      "type": "object",
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "const": "runtime-feature-falsifier"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "audit": {
+      "type": "object",
+      "required": [
+        "audit_id",
+        "mode",
+        "status",
+        "gate",
+        "started_at",
+        "finished_at"
+      ],
+      "properties": {
+        "audit_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "enum": [
+            "FEATURE",
+            "SYSTEM"
+          ]
+        },
+        "status": {
+          "enum": [
+            "COMPLETE",
+            "INCOMPLETE"
+          ]
+        },
+        "gate": {
+          "enum": [
+            "PENDING",
+            "PASSED"
+          ]
+        },
+        "started_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "finished_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "target": {
+      "type": "object",
+      "required": [
+        "project",
+        "environment",
+        "scope",
+        "startup_path",
+        "runtime_identity_expectation",
+        "git_commit",
+        "output_root",
+        "run_id",
+        "path_warnings"
+      ],
+      "properties": {
+        "project": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "startup_path": {
+          "type": "string"
+        },
+        "runtime_identity_expectation": {
+          "type": "string"
+        },
+        "git_commit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "output_root": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "run_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path_warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "preflight": {
+      "type": "object",
+      "required": [
+        "environment_start",
+        "runtime_identity",
+        "environment_collision"
+      ],
+      "properties": {
+        "environment_start": {
+          "type": "object",
+          "required": [
+            "status",
+            "attempt_count"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "SURVIVED",
+                "FALSIFIED",
+                "BLOCKED",
+                "INCONCLUSIVE",
+                "MISSING"
+              ]
+            },
+            "attempt_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "runtime_identity": {
+          "type": "object",
+          "required": [
+            "status",
+            "attempt_count"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "SURVIVED",
+                "FALSIFIED",
+                "BLOCKED",
+                "INCONCLUSIVE",
+                "MISSING"
+              ]
+            },
+            "attempt_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "environment_collision": {
+          "type": "object",
+          "required": [
+            "status",
+            "attempt_count"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "SURVIVED",
+                "FALSIFIED",
+                "BLOCKED",
+                "INCONCLUSIVE",
+                "MISSING"
+              ]
+            },
+            "attempt_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "coverage": {
+      "type": "object",
+      "required": [
+        "discovered",
+        "in_scope",
+        "planned",
+        "audited",
+        "excluded",
+        "unmapped",
+        "required_probes",
+        "completed_required_probes"
+      ],
+      "properties": {
+        "discovered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "in_scope": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "planned": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "audited": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unmapped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "required_probes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completed_required_probes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "verdict_counts": {
+      "type": "object",
+      "required": [
+        "FALSIFIED",
+        "NOT_FALSIFIED",
+        "BLOCKED",
+        "INCONCLUSIVE",
+        "INCOMPLETE"
+      ],
+      "properties": {
+        "FALSIFIED": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "NOT_FALSIFIED": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "BLOCKED": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "INCONCLUSIVE": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "INCOMPLETE": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "$ref": "feature-result.schema.json"
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "finding.schema.json"
+      }
+    },
+    "hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "hypothesis_id",
+          "feature_id",
+          "statement",
+          "status",
+          "max_attempts",
+          "trigger_attempt_id",
+          "next_probe",
+          "evidence_for",
+          "evidence_against",
+          "updates",
+          "attempts_used",
+          "attempts_remaining"
+        ],
+        "properties": {
+          "hypothesis_id": {
+            "type": "string",
+            "pattern": "^hyp-[a-zA-Z0-9._-]+$"
+          },
+          "feature_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "enum": [
+              "OPEN",
+              "SUPPORTED",
+              "REFUTED",
+              "CONFIRMED",
+              "BLOCKED",
+              "BUDGET_EXHAUSTED"
+            ]
+          },
+          "max_attempts": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "trigger_attempt_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "next_probe": {
+            "type": "string"
+          },
+          "evidence_for": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence_against": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "updates": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "attempts_used": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "attempts_remaining": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "last_changed_variable": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "required": [
+        "attempt_chain_head",
+        "hypothesis_chain_head",
+        "plan_sha256",
+        "inventory_sha256",
+        "canonicalization"
+      ],
+      "properties": {
+        "attempt_chain_head": {
+          "type": "string",
+          "pattern": "^(?:|[0-9a-f]{64})$"
+        },
+        "hypothesis_chain_head": {
+          "type": "string",
+          "pattern": "^(?:|[0-9a-f]{64})$"
+        },
+        "plan_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "inventory_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "canonicalization": {
+          "const": "RFC8785-JCS-float-free-profile"
+        }
+      },
+      "additionalProperties": false
+    },
+    "artifacts": {
+      "type": "object",
+      "required": [
+        "findings",
+        "summary",
+        "report",
+        "feature_matrix",
+        "system_coverage",
+        "manifest"
+      ],
+      "properties": {
+        "findings": {
+          "const": "findings.json"
+        },
+        "summary": {
+          "const": "audit-summary.md"
+        },
+        "report": {
+          "const": "audit-report.md"
+        },
+        "feature_matrix": {
+          "const": "feature-matrix.md"
+        },
+        "system_coverage": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "system-coverage.md",
+            null
+          ]
+        },
+        "manifest": {
+          "const": "result-manifest.json"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

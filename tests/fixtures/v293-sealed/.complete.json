@@ -1,0 +1,19 @@
+{
+  "audit_id": "v293-sealed",
+  "audit_mode": "FEATURE",
+  "canonicalization": "RFC8785-JCS-float-free-profile",
+  "completed_at_utc": "2026-09-23T12:19:36.423897+00:00",
+  "next_run_policy": "After remediation or a re-audit, use a fresh auditor instance and a new audit workspace; do not append to this sealed run.",
+  "producer": {
+    "name": "runtime-feature-falsifier",
+    "version": "2.9.3"
+  },
+  "schema_version": "1.0.0",
+  "sealed": true,
+  "sealed_at_utc": "2026-09-23T12:19:36.423897+00:00",
+  "state": "PASSED",
+  "subjects": {
+    "audit_result_jcs_sha256": "8657d5b068a47655aa302ee2541478b0c018f323fb350e8d70f838df932e1b95",
+    "result_manifest_jcs_sha256": "b89e110f8d23853ed6398c984a187ae7d90f4b428a78cc31fa5c07891d076937"
+  }
+}

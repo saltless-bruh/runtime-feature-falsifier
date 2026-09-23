@@ -3,7 +3,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TESTS="$ROOT/tests"
 
-printf '[1/6] Validating v2.8.0 distribution, CLI package, and cross-harness skill...\n'
+printf '[1/6] Validating v2.9.5 distribution, CLI package, and cross-harness skill...\n'
 python3 "$TESTS/tools/validate_bundle.py"
 
 printf '[2/6] Syntax-checking runtime, CLI, tests, Claude, Google, and OpenCode companions without generating bytecode...\n'

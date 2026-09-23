@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://runtime-feature-falsifier.dev/schema/findings.schema.json",
+  "title": "Runtime Feature Falsifier findings projection",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "audit_id",
+    "findings"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "audit_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "finding.schema.json"
+      }
+    }
+  },
+  "additionalProperties": false
+}

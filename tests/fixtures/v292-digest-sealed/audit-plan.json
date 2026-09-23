@@ -1,0 +1,92 @@
+{
+  "schema_version": "2.0",
+  "audit_id": "legacy-digest-v292",
+  "audit_mode": "FEATURE",
+  "created_at_utc": "2026-09-23T08:37:23.903118+00:00",
+  "target": {
+    "project": "demo",
+    "environment": "local",
+    "scope": "feature",
+    "startup_path": "demo --serve",
+    "runtime_identity_expectation": "demo service",
+    "collision_surfaces": [
+      "isolated-db"
+    ]
+  },
+  "features": [
+    {
+      "feature_id": "feature",
+      "claim": "feature has real effect",
+      "claim_source": "acceptance",
+      "entry_points": [
+        "CLI"
+      ],
+      "expected_end_effects": [
+        "effect"
+      ],
+      "input_sensitive": false,
+      "stateful": true,
+      "dependency_sensitive": false,
+      "probes": [
+        {
+          "probe_id": "environment-start",
+          "probe_intent": "environment_start",
+          "contract_relation": "ENVIRONMENT",
+          "expected": "starts",
+          "effect_checks": [],
+          "required": true
+        },
+        {
+          "probe_id": "runtime-identity",
+          "probe_intent": "runtime_identity",
+          "contract_relation": "ENVIRONMENT",
+          "expected": "identity",
+          "effect_checks": [
+            "identity"
+          ],
+          "required": true
+        },
+        {
+          "probe_id": "environment-collision",
+          "probe_intent": "environment_collision",
+          "contract_relation": "ENVIRONMENT",
+          "expected": "isolated",
+          "effect_checks": [
+            "isolated"
+          ],
+          "required": true
+        },
+        {
+          "probe_id": "baseline",
+          "probe_intent": "baseline_valid",
+          "contract_relation": "VALID",
+          "expected": "effect",
+          "effect_checks": [
+            "effect"
+          ],
+          "required": true
+        },
+        {
+          "probe_id": "persistence",
+          "probe_intent": "persistence",
+          "contract_relation": "VALID",
+          "expected": "persists",
+          "effect_checks": [
+            "persists"
+          ],
+          "required": true
+        },
+        {
+          "probe_id": "roundtrip",
+          "probe_intent": "round_trip",
+          "contract_relation": "VALID",
+          "expected": "roundtrip",
+          "effect_checks": [
+            "roundtrip"
+          ],
+          "required": true
+        }
+      ]
+    }
+  ]
+}

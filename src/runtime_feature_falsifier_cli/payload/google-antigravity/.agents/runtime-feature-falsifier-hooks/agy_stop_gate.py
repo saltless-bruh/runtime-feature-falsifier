@@ -5,6 +5,39 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+def resolve_active_audit(root: Path) -> Path | None:
+    """Resolve v2.9 configurable output root + active run pointer."""
+    output = ".runtime-feature-audit"
+    cfg = root / ".rff.toml"
+    if cfg.is_file():
+        try:
+            import tomllib
+            data = tomllib.loads(cfg.read_text(encoding="utf-8"))
+            candidate = (data.get("audit") or {}).get("output_dir")
+            if isinstance(candidate, str) and candidate.strip():
+                output = candidate.strip()
+        except Exception:
+            return None
+    out = (root / output).resolve(strict=False)
+    try:
+        out.relative_to(root.resolve())
+    except ValueError:
+        return None
+    pointer = out / "active.json"
+    if pointer.is_file():
+        try:
+            info = json.loads(pointer.read_text(encoding="utf-8"))
+            run = (out / str(info.get("path", ""))).resolve(strict=False)
+            run.relative_to(out)
+            if (run / ".active.json").is_file():
+                return run
+        except Exception:
+            return None
+    # Legacy flat workspace compatibility.
+    if (out / ".active.json").is_file():
+        return out
+    return None
+
 
 
 def main() -> int:
@@ -18,8 +51,8 @@ def main() -> int:
         print(json.dumps({"decision": "allow"}))
         return 0
     root = Path(paths[0]).resolve()
-    audit = root / ".runtime-feature-audit"
-    if not (audit / ".active.json").exists():
+    audit = resolve_active_audit(root)
+    if audit is None:
         print(json.dumps({"decision": "allow"}))
         return 0
     auditctl = root / ".agents" / "skills" / "runtime-feature-falsifier" / "scripts" / "auditctl.py"

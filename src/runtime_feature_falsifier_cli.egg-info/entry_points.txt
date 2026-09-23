@@ -1,0 +1,2 @@
+[console_scripts]
+rff = runtime_feature_falsifier_cli:main

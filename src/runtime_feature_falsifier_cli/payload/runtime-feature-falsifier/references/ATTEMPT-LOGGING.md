@@ -11,7 +11,7 @@ Every runtime attempt has exactly two lifecycle events:
 1. `STARTED` — append **before** executing the runtime action.
 2. `FINISHED` — append immediately after the action, including crashes, timeouts, blockers, and inconclusive outcomes.
 
-Use `scripts/auditctl.py attempt-start` and `attempt-finish`; do not hand-edit `attempts.jsonl`.
+Use `rff audit attempt start` and `rff audit attempt finish`; do not hand-edit `attempts.jsonl`. The public CLI resolves the configured active run.
 
 An unmatched `STARTED` event is evidence of an interrupted audit. The final gate rejects it.
 
@@ -81,7 +81,7 @@ A correct rejection of an invalid input is `SURVIVED`, not a failure.
 
 ## Evidence references
 
-Use stable paths under `.runtime-feature-audit/evidence/` when possible. Examples:
+Use stable paths under the active run's `evidence/` directory when possible; resolve it with `rff audit where --format json`. Examples:
 
 - before/after screenshots,
 - request/response or HAR captures,
@@ -97,7 +97,7 @@ A status code, toast, generated ID, or exit code without the advertised end effe
 
 For large audits, use `attempt-batch` to reduce controller ceremony without weakening chronology. A `START` batch pre-registers several attempts before execution; a later `FINISH` batch records their observed outcomes. The controller validates the entire batch, serializes accepted events under one lock, and continues the same hash chain. Batching never authorizes invented observations or post-hoc logging of probes that were not executed.
 
-Workers may execute pre-registered probes concurrently, but **only `auditctl.py` writes canonical JSONL**. Use unique evidence filenames per worker. The controller uses a cross-platform lock (POSIX `flock`, Windows `msvcrt`) so concurrent controller processes serialize safely. Readers of canonical JSONL take that same exclusive lock; summary/report/gate and chain-head reads therefore wait for an in-progress append instead of parsing a partial final line.
+Workers may execute pre-registered probes concurrently, but **only the RFF CONTROL plane (`rff audit ...`) writes canonical JSONL**. Use unique evidence filenames per worker. The controller uses a cross-platform lock (POSIX `flock`, Windows `msvcrt`) so concurrent controller processes serialize safely. Readers of canonical JSONL take that same exclusive lock; summary/report/gate and chain-head reads therefore wait for an in-progress append instead of parsing a partial final line.
 
 Every controller response includes current `chain_heads` for attempts and hypotheses. Preserve command output in the agent transcript when possible; this gives an external record of the observed chain head even though a filesystem-capable agent could theoretically rewrite the local log and recompute hashes.
 

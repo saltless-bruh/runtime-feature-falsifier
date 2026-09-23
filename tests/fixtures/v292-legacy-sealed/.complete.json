@@ -1,0 +1,7 @@
+{
+  "audit_id": "legacy-v292",
+  "audit_mode": "FEATURE",
+  "completed_at_utc": "2026-09-23T08:22:06.680881+00:00",
+  "next_run_policy": "After remediation or a re-audit, use a fresh auditor instance and a new audit workspace; do not append to this sealed run.",
+  "sealed": true
+}

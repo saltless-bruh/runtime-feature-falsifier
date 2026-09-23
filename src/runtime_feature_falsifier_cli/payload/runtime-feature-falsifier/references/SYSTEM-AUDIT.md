@@ -32,7 +32,7 @@ Prefer starting with `/plan` for a whole-project audit. During Plan Mode:
 - identify required credentials/dependencies and likely blockers,
 - decide how to partition the execution into coherent batches.
 
-Do **not** execute the runtime falsification matrix while still in Plan Mode. After the plan is approved / Plan Mode ends, create `.runtime-feature-audit/`, materialize the inventory and audit plan, validate them, then execute.
+Do **not** execute the runtime falsification matrix while still in Plan Mode. After the plan is approved / Plan Mode ends, run `rff audit init --mode system`, resolve the active run with `rff audit where`, materialize the inventory and audit plan there, validate them, then execute.
 
 If Plan Mode is unavailable, use the host's planning/TODO facility and perform the same read-only discovery phase before runtime execution.
 
@@ -73,7 +73,7 @@ Use at least two materially independent discovery sources in `SYSTEM` mode when 
 
 ## Phase S2 — Normalize and inventory
 
-Create `.runtime-feature-audit/feature-inventory.json`.
+Create `feature-inventory.json` in the active run returned by `rff audit where`.
 
 Each discovered item should represent a falsifiable runtime capability or workflow, not an implementation symbol. Give it:
 

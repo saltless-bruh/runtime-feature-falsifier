@@ -50,14 +50,14 @@ The CLI exposes execution modes and the `/agents`, `/skills`, `/hooks`, `/permis
 
 ## Asynchronous subagents
 
-Antigravity CLI can run background subagents. Parallel **execution** is allowed, but canonical RFF logging remains serialized through `auditctl.py`.
+Antigravity CLI can run background subagents. Parallel **execution** is allowed, but canonical RFF logging remains serialized through the public `rff audit ...` CONTROL plane.
 
 For parallel probes:
 
 1. pre-register probes using `attempt-batch` START,
 2. delegate runtime work,
 3. collect concrete outputs/evidence,
-4. batch FINISH through `auditctl.py`,
+4. batch FINISH through `rff audit attempt batch`,
 5. never let subagents hand-edit `attempts.jsonl` or `hypothesis-ledger.jsonl`.
 
 The dedicated auditor intentionally limits direct mutation tools, but Antigravity subagents inherit granted capabilities and shell execution can still mutate the workspace. The tracked-source baseline/final gate remain required.
@@ -78,4 +78,4 @@ After installation/update:
 
 ## Re-audit after remediation
 
-For a second audit run, use `/agents` to invoke/select a **fresh** `runtime-feature-auditor` and point it at a new audit directory (for example `.runtime-feature-audit-run2`). Antigravity CLI subagents that have completed may remain idle; RFF does not assume that sending a message to an idle instance restarts its work loop.
+For a second audit run, use `/agents` to invoke/select a **fresh** `runtime-feature-auditor` and run `rff audit init` to create a fresh immutable run under the configured output root. Antigravity CLI subagents that have completed may remain idle; RFF does not assume that sending a message to an idle instance restarts its work loop.

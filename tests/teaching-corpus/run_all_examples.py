@@ -23,6 +23,13 @@ CASES = [
     "test_reader_locking.py",
     "test_full_json_schema_engine.py",
     "test_field_hardening.py",
+    "test_v290_structured_output.py",
+    "test_v292_contract_integrity.py",
+    "test_v293_gate_seal.py",
+    "test_v293_legacy_migration.py",
+    "test_v294_seal_provenance.py",
+    "test_v295_lifecycle_atomicity.py",
+    "test_v290_cli_runs.py",
 ]
 
 

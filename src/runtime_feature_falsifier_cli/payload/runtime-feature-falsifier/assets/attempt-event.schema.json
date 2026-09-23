@@ -135,6 +135,14 @@
       "items": {
         "type": "string"
       }
+    },
+    "severity": {
+      "enum": [
+        "CRITICAL",
+        "HIGH",
+        "MEDIUM",
+        "LOW"
+      ]
     }
   },
   "additionalProperties": true

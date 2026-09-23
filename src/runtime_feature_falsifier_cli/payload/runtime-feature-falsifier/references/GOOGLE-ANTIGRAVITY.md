@@ -42,7 +42,7 @@ The auditor is intentionally not a full sandbox. Shell commands can mutate files
 
 ## Browser-heavy features
 
-Antigravity 2.0 has a specialized Browser capability. If the restricted auditor cannot access it, use the normal Antigravity agent/browser capability while preserving the same `.runtime-feature-audit/` workspace:
+Antigravity 2.0 has a specialized Browser capability. If the restricted auditor cannot access it, use the normal Antigravity agent/browser capability while preserving the same active RFF run returned by `rff audit where`:
 
 1. controlling auditor records `STARTED`,
 2. browser interaction exercises the real UI,
@@ -55,7 +55,7 @@ Do not replace browser runtime evidence with source inspection merely because th
 
 Antigravity JSON hooks can be configured at `.agents/hooks.json`. RFF keeps strict hooks **opt-in** because workspace hooks affect ordinary Antigravity work outside this audit.
 
-When enabled they are dormant unless `.runtime-feature-audit/.active.json` exists and provide:
+When enabled they are dormant unless the configured RFF output root points to an active run and provide:
 
 - `PreToolUse`: block obvious target-source/test mutation attempts;
 - `PreInvocation`: re-inject the active-audit invariant after long trajectories/context compaction;

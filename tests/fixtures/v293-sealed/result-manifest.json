@@ -1,0 +1,23 @@
+{
+  "audit_id": "v293-sealed",
+  "canonicalization": "RFC8785-JCS-float-free-profile",
+  "inputs": {
+    "attempt_chain_head": "6f3db036a12b04666d59932f730373d3cc135c6007772e630d9998cf268c19a9",
+    "hypothesis_chain_head": "",
+    "inventory_sha256": null,
+    "plan_sha256": "ec57e271706402f2d83344d0ac42ef332eea665842fdce81081a6a95f70c3442"
+  },
+  "outputs": {
+    "audit_report_sha256": "1d394ba48f337527dcd7430085043cf88df272864bc1047f67b6167ce6b3387b",
+    "audit_result_jcs_sha256": "8657d5b068a47655aa302ee2541478b0c018f323fb350e8d70f838df932e1b95",
+    "audit_summary_sha256": "c13e2f91d7e8c5a7c3d9476c04e13099cee020bd133836dd6e9eedb0009237ac",
+    "feature_matrix_sha256": "85be3cd83a1891dd0f2aaae7dd16c874e873390c3d17848bfe0000c85c567063",
+    "findings_jcs_sha256": "76f51a43d5f8ff13d48c844b2c99be07a039993ee1f9f4c9967163110c048f3d",
+    "system_coverage_sha256": null
+  },
+  "producer": {
+    "name": "runtime-feature-falsifier",
+    "version": "2.9.3"
+  },
+  "schema_version": "1.0.0"
+}

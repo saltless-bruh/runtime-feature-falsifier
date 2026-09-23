@@ -1,0 +1,212 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://runtime-feature-falsifier.dev/schema/result-manifest.schema.json",
+  "title": "Runtime Feature Falsifier result provenance manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "producer",
+    "audit_id",
+    "canonicalization",
+    "inputs",
+    "outputs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "producer": {
+      "type": "object",
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "const": "runtime-feature-falsifier"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "audit_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "canonicalization": {
+      "const": "RFC8785-JCS-float-free-profile"
+    },
+    "inputs": {
+      "type": "object",
+      "required": [
+        "plan_sha256",
+        "inventory_sha256",
+        "attempt_chain_head",
+        "hypothesis_chain_head"
+      ],
+      "properties": {
+        "plan_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "inventory_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "attempt_chain_head": {
+          "type": "string",
+          "pattern": "^(?:|[0-9a-f]{64})$"
+        },
+        "hypothesis_chain_head": {
+          "type": "string",
+          "pattern": "^(?:|[0-9a-f]{64})$"
+        },
+        "audit_genesis_jcs_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "tracked_source_baseline_jcs_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "tracked_source_snapshot_format": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "rff-git-worktree-v2",
+            "legacy-content-only",
+            null
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "required": [
+        "audit_result_jcs_sha256",
+        "findings_jcs_sha256",
+        "audit_summary_sha256",
+        "audit_report_sha256",
+        "feature_matrix_sha256",
+        "system_coverage_sha256"
+      ],
+      "properties": {
+        "audit_result_jcs_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "findings_jcs_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "audit_summary_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "audit_report_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "feature_matrix_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "system_coverage_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "seal_metadata": {
+      "type": "object",
+      "required": [
+        "completed_at_utc",
+        "sealed_at_utc",
+        "completion_time_provenance",
+        "next_run_policy"
+      ],
+      "properties": {
+        "completed_at_utc": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|\\+00:00)$"
+        },
+        "sealed_at_utc": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|\\+00:00)$"
+        },
+        "completion_time_provenance": {
+          "enum": [
+            "v2.9.5-gate",
+            "v2.9.4-gate",
+            "v2.9.4-seal-bound",
+            "legacy-marker-unverified",
+            "pre-v2.9.3-seal-unbound",
+            "v2.9.3-seal-unbound"
+          ]
+        },
+        "migration": {
+          "$ref": "#/definitions/migration"
+        },
+        "next_run_policy": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "migration": {
+      "type": "object",
+      "required": [
+        "from_producer_version",
+        "from_format"
+      ],
+      "properties": {
+        "from_producer_version": {
+          "enum": [
+            "2.9.0",
+            "2.9.1",
+            "2.9.2",
+            "2.9.3",
+            "2.9.4"
+          ]
+        },
+        "from_format": {
+          "enum": [
+            "legacy-completion-marker",
+            "digest-bound-pre-v2.9.3-seal",
+            "v2.9.3-digest-seal",
+            "v2.9.4-manifest-bound-seal"
+          ]
+        },
+        "prior_migration": {
+          "$ref": "#/definitions/migration"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

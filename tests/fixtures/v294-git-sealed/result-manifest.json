@@ -1,0 +1,29 @@
+{
+  "audit_id": "v294-git-sealed",
+  "canonicalization": "RFC8785-JCS-float-free-profile",
+  "inputs": {
+    "attempt_chain_head": "bf324ad3789d84f62926b0e1b677e452129df9a04ade3b89f1bccb31b6e2e5a9",
+    "hypothesis_chain_head": "",
+    "inventory_sha256": null,
+    "plan_sha256": "131c6fc277a511fa9f2e08558a5ceeb170257d934999c19bec8f245e48c93093"
+  },
+  "outputs": {
+    "audit_report_sha256": "0525bc9c902577965ee08f0fc1806ca191c77c9320050258601db304cf22f7db",
+    "audit_result_jcs_sha256": "aac3a2a5f2a29d26a77ce73bb2ccff50ea84d14f500bac4d4629817363ddef0f",
+    "audit_summary_sha256": "f52a80ad15d76565862804dc7b939f7522765a8136f0dfa6f0526e0152bd255f",
+    "feature_matrix_sha256": "85be3cd83a1891dd0f2aaae7dd16c874e873390c3d17848bfe0000c85c567063",
+    "findings_jcs_sha256": "161c651c59c11a8f4b730d8422a991b5d6a1c1349d6adf8cd0060f95698703c1",
+    "system_coverage_sha256": null
+  },
+  "producer": {
+    "name": "runtime-feature-falsifier",
+    "version": "2.9.4"
+  },
+  "schema_version": "1.0.0",
+  "seal_metadata": {
+    "completed_at_utc": "2026-09-23T13:51:42.103869+00:00",
+    "completion_time_provenance": "v2.9.4-gate",
+    "next_run_policy": "After remediation or a re-audit, use a fresh auditor instance and a new audit workspace; do not append to this sealed run.",
+    "sealed_at_utc": "2026-09-23T13:51:42.103869+00:00"
+  }
+}

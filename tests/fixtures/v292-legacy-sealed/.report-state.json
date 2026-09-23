@@ -1,0 +1,8 @@
+{
+  "attempts_sha256": "c6445923c3f2a87f4f62825e8d2ece413f761e3e109bd990d006ab013049329f",
+  "audit_id": "legacy-v292",
+  "generated_at_utc": "2026-09-23T08:22:06.674818+00:00",
+  "hypotheses_sha256": null,
+  "inventory_sha256": null,
+  "plan_sha256": "7dda81341d30749a26b5119602458911c43734d27b180c1e91f522ad52da1900"
+}

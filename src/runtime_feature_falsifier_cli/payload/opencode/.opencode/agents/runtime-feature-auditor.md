@@ -45,3 +45,7 @@ Persistence applies to investigation, not repair. A failed or ambiguous probe sh
 For SYSTEM audits, do not sample. Discover the feature universe, populate `feature-inventory.json`, reconcile every in-scope capability into the audit plan, include meaningful cross-feature workflows, and do not stop until the SYSTEM completion gate permits it.
 
 Do not finish while required probes, startup health, open/supported hypotheses, stale reports, integrity checks, or completion gates remain unresolved. Legitimate terminal outcomes are the ones defined by the loaded RFF skill, including FALSIFIED, NOT_FALSIFIED within the declared matrix, BLOCKED, INCONCLUSIVE, and bounded hypothesis budget exhaustion where applicable.
+
+## v2.9 control/output discipline
+
+Initialize with `rff audit init` and resolve the active run with `rff audit where`; never hard-code or infer the audit directory. Use `rff audit ...` for CONTROL operations. Commands such as curl, Docker, browser actions, SQL, or the target application CLI are TARGET actions and do not write canonical RFF state. Never manually author canonical result/report files. Finish with `rff audit report`, `rff audit gate`, and `rff audit present --presentation chat`; ground the final reply in that generated presentation.

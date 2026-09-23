@@ -1,0 +1,18 @@
+{
+  "audit_id": "legacy-digest-v292",
+  "audit_mode": "FEATURE",
+  "canonicalization": "RFC8785-JCS-float-free-profile",
+  "completed_at_utc": "2026-09-23T08:37:23.971454+00:00",
+  "next_run_policy": "After remediation or a re-audit, use a fresh auditor instance and a new audit workspace; do not append to this sealed run.",
+  "producer": {
+    "name": "runtime-feature-falsifier",
+    "version": "2.9.2"
+  },
+  "schema_version": "1.0.0",
+  "sealed": true,
+  "state": "PASSED",
+  "subjects": {
+    "audit_result_jcs_sha256": "9cea60d88e5cebf6265f89d63954ceb9257aea02a0d50395aa7b054ab42f4dae",
+    "result_manifest_jcs_sha256": "7a257962c445961f6c4df911455e06b156f9e428653e76059a3687938afd51db"
+  }
+}

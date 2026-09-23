@@ -1,61 +1,82 @@
 # Runtime Feature Falsifier
 
+<div align="center">
+
 **Falsification-first runtime auditing for AI coding agents.**
 
-Runtime Feature Falsifier (RFF) is an Agent Skill and companion CLI for checking whether software features actually behave as claimed **through the running product**, instead of trusting source presence, test-suite success, UI chrome, canned demo output, or superficial wiring.
+[![Version](https://img.shields.io/badge/version-2.9.5-0A7EA4?style=flat-square)](https://github.com/saltless-bruh/runtime-feature-falsifier)
+[![Python](https://img.shields.io/badge/python-%3E%3D3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-2EA44F?style=flat-square)](runtime-feature-falsifier/LICENSE)
+[![Runtime](https://img.shields.io/badge/runtime-offline--capable-6f42c1?style=flat-square)](#integrity-and-trust-model)
+[![Audit](https://img.shields.io/badge/audit-falsification--first-C0392B?style=flat-square)](#verdict-semantics)
 
-It is designed to hunt for functionality that is:
+</div>
 
-- `TODO` / unimplemented,
-- placeholder-only,
-- fake or no-op,
-- `BTTLP` (**be-there-to-look-pretty**) — present enough to look implemented without completing the advertised behavior,
-- hardcoded to fixtures or narrow examples,
-- mock-only,
-- partially implemented,
-- superficially wired,
-- or otherwise broken inside the claimed runtime contract.
+Runtime Feature Falsifier (**RFF**) is an Agent Skill and companion CLI for checking whether software features actually behave as claimed **through the running product**.
 
-> **Core idea:** RFF does not try to prove that a feature is “alive.” It tries to **falsify the claim**. A feature that survives the declared probe matrix is reported as `NOT_FALSIFIED`, never as “proven,” “verified,” or “correct.”
+RFF does not trust source presence, passing tests, UI chrome, HTTP 200 responses, mocks, or demo output as proof that a feature works. It starts from the opposite question:
 
-Current release: **v2.8.0**
+> **Can the advertised runtime claim be falsified with a reproducible counterexample?**
+
+A feature that survives the declared probe matrix is reported as `NOT_FALSIFIED` — never “verified,” “proven,” or “correct.”
+
+**Current release: `v2.9.5`**
+
+---
 
 ## At a glance
 
-- **Audit target:** real runtime/product behavior, not test-suite appearance.
-- **Modes:** bounded `FEATURE` audit or exhaustive `SYSTEM` audit.
-- **Persistence:** bounded hypothesis-driven investigation; no blind retries.
-- **Integrity:** hash-chained logs, locked readers/writers, source baseline, schema validation, stale-report detection, identity/collision preflight, sealed-run policy, deterministic completion gate.
-- **Supported hosts:** Codex CLI, Google Antigravity 2.0, Google Antigravity CLI, Gemini CLI, OpenCode, and Claude Code.
-- **Installer:** `./install.sh` for humans; `rff` for project integration management and automation.
+| | |
+| --- | --- |
+| **Primary target** | Real runtime/product behavior |
+| **Audit modes** | `FEATURE` and exhaustive `SYSTEM` |
+| **Control plane** | `rff audit ...` |
+| **Canonical result** | `audit-result.json` |
+| **Finalization** | Digest-bound, seal-last gate |
+| **Lifecycle** | Active runs are mutable; sealed runs are immutable |
+| **Integrity** | Genesis + source baseline + hash-chained ledgers + JCS manifest + seal |
+| **History** | UUIDv7 runs, `latest.json`, canonical compare |
+| **Acceptance policy** | Separate from audit validity |
+| **Interop** | Markdown / JSON / SARIF |
+| **Runtime dependencies** | Self-contained/offline-capable validator |
+| **Python** | `>= 3.11` |
+| **Agents** | Codex CLI, Antigravity 2.0, Antigravity CLI, Gemini CLI, OpenCode, Claude Code |
+
+---
 
 ## Contents
 
-- [Why this exists](#why-this-exists)
-- [Showcase: auditing `upload-image`](#showcase-auditing-upload-image)
-- [Key properties](#key-properties)
+- [Why RFF exists](#why-rff-exists)
+- [What changed in v2.9](#what-changed-in-v29)
+- [The RFF model](#the-rff-model)
+- [Verdict semantics](#verdict-semantics)
+- [Gate vs policy](#gate-vs-policy)
 - [Quick start](#quick-start)
-- [`rff` CLI](#rff-cli)
-- [Supported agents](#supported-agents)
-- [Audit workflow](#audit-workflow)
-- [Audit artifacts](#audit-artifacts)
+- [The `rff` CLI](#the-rff-cli)
+- [Audit lifecycle](#audit-lifecycle)
+- [FEATURE and SYSTEM modes](#feature-and-system-modes)
 - [Probe strategy](#probe-strategy)
-- [SYSTEM audits](#system-audits)
+- [Persistent investigation](#persistent-investigation)
+- [Integrity and trust model](#integrity-and-trust-model)
+- [Audit artifacts](#audit-artifacts)
+- [History, compare, policy, and SARIF](#history-compare-policy-and-sarif)
+- [Supported agents](#supported-agents)
+- [Output configuration](#output-configuration)
 - [Safety and scope](#safety-and-scope)
 - [Repository layout](#repository-layout)
-- [Self-test](#self-test)
-- [Installing from a published Git repository](#installing-from-a-published-git-repository)
+- [Self-test and release validation](#self-test-and-release-validation)
 - [Recommended prompts](#recommended-prompts)
 - [Design principles](#design-principles)
 - [Known limitations](#known-limitations)
+- [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [License](#license)
 
 ---
 
-## Why this exists
+# Why RFF exists
 
-AI coding agents can produce software that looks finished while the real behavior is not there:
+AI coding agents can produce software that looks finished while the runtime behavior is incomplete, superficial, or fake.
 
 ```text
 button exists                  ≠ feature works
@@ -66,96 +87,185 @@ mock returns expected output   ≠ feature works
 HTTP 200                       ≠ required side effect happened
 ```
 
-RFF changes the agent’s objective from:
+RFF is designed to expose patterns such as:
+
+- `TODO` / unimplemented paths,
+- placeholder-only behavior,
+- fake or no-op implementations,
+- `BTTLP` (**be-there-to-look-pretty**) behavior,
+- hardcoded fixture responses,
+- mock-only behavior,
+- partial implementations,
+- superficially wired paths,
+- dependency substitutions,
+- runtime identity mistakes,
+- environment interference,
+- stale or non-causal output,
+- and other violations of the claimed runtime contract.
+
+The auditor changes its objective from:
 
 ```text
-“Does the code look implemented?”
+"Does the implementation look finished?"
 ```
 
 to:
 
 ```text
-“Can I find a reproducible runtime counterexample to the advertised behavior?”
+"Can I produce a reproducible runtime counterexample?"
 ```
 
-The target implementation and target tests are treated as **read-only during the audit**. Persistence applies to the investigation, not to repairing the target.
+Target implementation and target tests remain **read-only during the audit**. Persistence applies to the investigation, not to repairing the target.
 
 ---
 
-## Showcase: auditing `upload-image`
+# What changed in v2.9
 
-A weak audit might do this:
+v2.8 hardened the runtime preflight. v2.9 turns RFF into a much stronger **audit control plane**.
 
-```text
-POST /upload image.png
-→ 201 Created
-→ PASS
+```mermaid
+flowchart LR
+    A[v2.8<br/>runtime identity + collision preflight]
+    B[v2.9.0<br/>public control plane + canonical results]
+    C[v2.9.2<br/>semantic re-derivation + provenance]
+    D[v2.9.3<br/>digest-bound final seal]
+    E[v2.9.4<br/>manifest-bound seal metadata]
+    F[v2.9.5<br/>lifecycle atomicity + immutable genesis]
+
+    A --> B --> C --> D --> E --> F
 ```
 
-RFF expects something closer to:
+### Major v2.9 capabilities
 
-```text
-1. Start the real application through its documented startup path.
-2. Confirm startup health.
-3. Upload a valid PNG through the real UI/API/CLI entry point.
-4. Verify the downstream object actually exists.
-5. Retrieve/render/download it through another real path.
-6. Upload a materially different image and compare resulting state.
-7. Exercise other supported image formats.
-8. Exercise invalid/non-image inputs.
-9. Exercise corrupt/truncated/mislabeled files.
-10. Check duplicate/retry behavior.
-11. Check persistence if persistence is part of the contract.
-12. Investigate suspicious behavior until the hypothesis is resolved.
+**Public control plane**
+
+```bash
+rff audit ...
 ```
 
-Example failure:
+Direct `auditctl.py` use remains an internal/compatibility path.
+
+**Multi-run project-local history**
 
 ```text
-PNG A → 201 → /files/demo-image.png
-PNG B → 201 → /files/demo-image.png
-PDF   → 201 → /files/demo-image.png
-
-retrieved hash(A) == hash(B)
+<output-root>/
+├── active.json
+├── latest.json
+└── runs/
+    ├── rff-<uuidv7>/
+    ├── rff-<uuidv7>/
+    └── ...
 ```
 
-RFF can then investigate the hypothesis that the endpoint is returning canned output and, if runtime evidence confirms it, report:
+**Canonical machine-readable outputs**
 
-```text
-Runtime verdict:        FALSIFIED
-Implementation pattern: HARDCODED
-Confidence:             HIGH
-```
+- `audit-result.json`
+- `findings.json`
+- `result-manifest.json`
+- `audit-summary.md`
+
+**Canonical integrity**
+
+- strict JSON ingestion,
+- float-free RFC 8785/JCS hashing profile,
+- schema validation,
+- semantic re-derivation,
+- plan/inventory/ledger provenance,
+- digest-bound final seal.
+
+**Immutable audit genesis**
+
+`audit-genesis.json` binds the original tracked-source baseline so the auditor cannot simply refresh the baseline after changing source.
+
+**Lifecycle enforcement**
+
+- active + unsealed → mutation allowed,
+- sealed → immutable history,
+- one audit-wide control lock serializes stateful read/check/write operations.
+
+**Validated readers**
+
+`present`, `policy`, `export`, and `compare` reject invalid, unsealed, tampered, or incompatible canonical inputs.
+
+**Historical migration**
+
+v2.9.5 can recognize historical v2.9.0–v2.9.4 sealed states as migration inputs and revalidate them before upgrading to the current seal protocol.
 
 ---
 
-## Key properties
+# The RFF model
 
-### Runtime-first evidence
+RFF separates three kinds of action:
 
-Primary evidence comes from the real supported product surface:
+```mermaid
+flowchart LR
+    U[User / Agent]
+    C[RFF CONTROL<br/>rff audit ...]
+    T[TARGET runtime<br/>browser / curl / CLI / Docker / SQL]
+    W[Audit workspace]
+    E[Evidence]
+    R[Canonical result + seal]
 
-- browser/UI interaction,
-- public HTTP/API surface,
-- CLI command,
-- public SDK/library interface,
-- RPC/event/job trigger when that is the supported interface,
-- and the required downstream state or side effect.
+    U --> C
+    U --> T
+    C --> W
+    T --> E
+    E --> W
+    W --> R
+```
 
-Reading source code is secondary. Source inspection is useful **after** runtime evidence exists, to classify why the behavior failed.
+### CONTROL
 
-### Falsification-first verdicts
+Commands that manage canonical RFF state.
 
-RFF uses four runtime verdicts:
+Examples:
+
+```text
+rff audit init
+rff audit attempt start
+rff audit attempt finish
+rff audit report
+rff audit gate
+rff audit policy
+rff audit compare
+```
+
+### TARGET
+
+Actions against the product being audited.
+
+Examples:
+
+```text
+browser interaction
+curl
+docker compose
+application CLI
+SQL
+public SDK call
+RPC/event/job trigger
+```
+
+RFF records what happened. It does **not** replace the real runtime action.
+
+### ILLUSTRATION
+
+Documentation examples only. They are not automatically executable audit steps.
+
+---
+
+# Verdict semantics
+
+RFF uses four runtime verdicts.
 
 | Verdict | Meaning |
 | --- | --- |
 | `FALSIFIED` | A reproducible counterexample violates a claimed obligation. |
-| `NOT_FALSIFIED` | Required planned probes completed without a counterexample. This is not proof of correctness. |
-| `BLOCKED` | A required dependency, credential, runtime surface, or environment is unavailable. |
-| `INCONCLUSIVE` | Evidence is contradictory, ambiguous, or the bounded investigation budget was exhausted. |
+| `NOT_FALSIFIED` | Required planned probes completed without a qualifying counterexample. **Not proof of correctness.** |
+| `BLOCKED` | A required dependency, credential, runtime surface, permission, or environment is unavailable. |
+| `INCONCLUSIVE` | Evidence remains ambiguous/contradictory, or the bounded investigation budget was exhausted. |
 
-Implementation-pattern labels are separate from runtime verdicts:
+Implementation-pattern classification is separate from the runtime verdict:
 
 ```text
 TODO
@@ -170,67 +280,80 @@ NONE_OBSERVED
 UNKNOWN_PATTERN
 ```
 
-### Persistent investigation
+Severity and confidence are separate dimensions as well.
 
-A suspicious result does not automatically become a finding.
+---
 
-RFF uses a bounded hypothesis loop:
+# Gate vs policy
+
+This distinction is central in v2.9.
 
 ```mermaid
 flowchart TD
-    A[Suspicious or failing behavior] --> B[Open falsifiable hypothesis]
-    B --> C[Design information-gaining probe]
-    C --> D[Run real product]
-    D --> E[Capture runtime evidence]
-    E --> F[Try to disprove hypothesis]
-    F -->|Refuted| G[Close as REFUTED]
-    F -->|Still plausible| H[Change an information-bearing variable]
-    H --> C
-    F -->|Confirmed by runtime counterexample| I[Close as CONFIRMED]
-    F -->|Cannot proceed| J[BLOCKED]
-    F -->|Budget exhausted| K[BUDGET_EXHAUSTED / INCONCLUSIVE]
+    A[Audit evidence]
+    B[Deterministic gate]
+    C{Integrity + completeness valid?}
+    D[SEALED canonical audit]
+    E[Policy]
+    F[Accept / Reject for project]
+
+    A --> B --> C
+    C -->|No| X[Audit cannot finalize]
+    C -->|Yes| D --> E --> F
 ```
 
-Blind retries do not count as persistence. A retry must either change an information-bearing variable or explicitly explain why an unchanged repetition is useful for reproducibility/nondeterminism analysis.
+A successful gate means:
 
-### FEATURE and SYSTEM modes
+> **The audit record is structurally valid, complete enough for its declared plan, internally consistent, and sealed.**
 
-RFF has two scopes:
+It does **not** mean:
 
-- **`FEATURE`** — one named feature or an explicitly bounded set of capabilities.
-- **`SYSTEM`** — all/every features, whole-project, whole-system, or equivalent exhaustive requests.
+> “The product is healthy.”
 
-A `SYSTEM` audit is **not representative sampling**.
+A perfectly valid sealed audit may contain several `FALSIFIED` features.
 
-It must:
+Example acceptance policy:
 
-1. discover the runtime/product capability universe,
-2. create `feature-inventory.json`,
-3. map every `IN_SCOPE` capability into the audit plan,
-4. include meaningful cross-feature workflows,
-5. execute the required runtime probes,
-6. and pass the deterministic final gate.
+```bash
+rff audit policy --fail-on FALSIFIED
+```
+
+or:
+
+```bash
+rff audit policy \
+  --fail-on FALSIFIED \
+  --fail-on BLOCKED \
+  --fail-on SEVERITY_CRITICAL \
+  --fail-on SEVERITY_HIGH
+```
 
 ---
 
 # Quick start
 
-## Prerequisite
+## Requirements
 
-The bootstrap installer uses [`uv`](https://docs.astral.sh/uv/).
+- Python **3.11+**
+- [`uv`](https://docs.astral.sh/uv/) for bootstrap/install
 
-After cloning or extracting the repository:
+Clone or extract the release bundle, then run:
 
 ```bash
 ./install.sh
 ```
 
-The installer updates the persistent `rff` CLI and opens an interactive wizard.
+The installer:
+
+1. installs/updates the persistent `rff` CLI,
+2. detects supported coding-agent clients,
+3. shows the install/update plan,
+4. installs selected project integrations.
 
 Typical flow:
 
 ```text
-Runtime Feature Falsifier v2.8.0
+Runtime Feature Falsifier v2.9.5
 
 Detected agents
   [x] Codex CLI
@@ -252,51 +375,13 @@ Install for
   [0] Cancel
 ```
 
-The installer asks for the target project, previews the managed destinations, and installs or updates the selected integrations.
-
-### Non-interactive examples
+## Non-interactive examples
 
 Codex:
 
 ```bash
 ./install.sh \
   --codex \
-  --project /path/to/project \
-  --force
-```
-
-Google Antigravity 2.0:
-
-```bash
-./install.sh \
-  --antigravity2 \
-  --project /path/to/project \
-  --force
-```
-
-Google Antigravity CLI:
-
-```bash
-./install.sh \
-  --antigravity-cli \
-  --project /path/to/project \
-  --force
-```
-
-Legacy Google alias — installs the shared Antigravity workspace integration for both 2.0 and CLI:
-
-```bash
-./install.sh \
-  --antigravity \
-  --project /path/to/project \
-  --force
-```
-
-Gemini CLI:
-
-```bash
-./install.sh \
-  --gemini \
   --project /path/to/project \
   --force
 ```
@@ -319,24 +404,61 @@ Claude Code:
   --force
 ```
 
-### Windows
+Antigravity 2.0:
 
-`install.sh` is the POSIX bootstrap. The packaged Python CLI is cross-platform.
-
-With the prebuilt wheel:
-
-```powershell
-uv tool install .\dist\runtime_feature_falsifier_cli-2.7.0-py3-none-any.whl --force
-rff init
+```bash
+./install.sh \
+  --antigravity2 \
+  --project /path/to/project \
+  --force
 ```
 
-RFF documentation uses `python3` for POSIX examples. On default Windows Python installations, use `py -3` instead.
+Antigravity CLI:
+
+```bash
+./install.sh \
+  --antigravity-cli \
+  --project /path/to/project \
+  --force
+```
+
+Gemini CLI:
+
+```bash
+./install.sh \
+  --gemini \
+  --project /path/to/project \
+  --force
+```
+
+## Prebuilt wheel
+
+The one-shot bundle contains a universal wheel:
+
+```text
+dist/runtime_feature_falsifier_cli-2.9.5-py3-none-any.whl
+```
+
+Install directly:
+
+```bash
+uv tool install ./dist/runtime_feature_falsifier_cli-2.9.5-py3-none-any.whl --force
+```
+
+Windows PowerShell:
+
+```powershell
+uv tool install .\dist\runtime_feature_falsifier_cli-2.9.5-py3-none-any.whl --force
+rff --version
+```
+
+RFF docs use `python3` in POSIX examples. On a default Windows Python installation, `py -3` is typically the equivalent.
 
 ---
 
-# `rff` CLI
+# The `rff` CLI
 
-After installation, use the persistent CLI from any project:
+## Installation / integration management
 
 ```bash
 rff --version
@@ -346,7 +468,7 @@ rff doctor --here
 rff init --here
 ```
 
-Install a specific integration:
+Install one integration:
 
 ```bash
 rff init --here --integration codex
@@ -357,22 +479,22 @@ rff init --here --integration opencode
 rff init --here --integration claude
 ```
 
-Multiple integrations:
+Install several:
 
 ```bash
 rff init --here \
   --integration codex \
   --integration opencode \
-  --integration antigravity-cli
+  --integration claude
 ```
 
-All supported integrations:
+Install all supported integrations:
 
 ```bash
 rff init --here --integration all
 ```
 
-Automation/CI:
+Automation:
 
 ```bash
 rff init /path/to/project \
@@ -382,7 +504,7 @@ rff init /path/to/project \
   --force
 ```
 
-CLI self-management:
+## CLI self-management
 
 ```bash
 rff self version
@@ -390,408 +512,162 @@ rff self check
 rff self upgrade --from /path/to/new/release
 ```
 
----
-
-# Supported agents
-
-RFF is designed as a portable Agent Skill with host-specific companions where the host supports them.
-
-| Agent / host | Integration key | Project skill path | Dedicated auditor | SYSTEM planning guidance |
-| --- | --- | --- | --- | --- |
-| **Codex CLI** | `codex` | `.agents/skills/runtime-feature-falsifier/` | Portable skill | Prefer `/plan` before exhaustive execution |
-| **Google Antigravity 2.0** | `antigravity2` | `.agents/skills/runtime-feature-falsifier/` | `.agents/agents/runtime-feature-auditor/agent.md` | Use Planning Mode / Implementation Plan |
-| **Google Antigravity CLI** | `antigravity-cli` | `.agents/skills/runtime-feature-falsifier/` | `.agents/agents/runtime-feature-auditor/agent.md` | Use CLI plan mode before execution |
-| **Gemini CLI** | `gemini` | `.agents/skills/runtime-feature-falsifier/` | Portable skill | Use the host planning mechanism before SYSTEM execution |
-| **OpenCode** | `opencode` | `.opencode/skills/runtime-feature-falsifier/` | `.opencode/agents/runtime-feature-auditor.md` | Use a plan-oriented workflow for SYSTEM discovery |
-| **Claude Code** | `claude` | `.claude/skills/runtime-feature-falsifier/` | `.claude/agents/runtime-feature-auditor.md` + hooks | Plan first for non-trivial SYSTEM audits |
-
-## Codex CLI
-
-Installed at:
+## Audit control plane
 
 ```text
-<project>/.agents/skills/runtime-feature-falsifier/
+rff audit init [options]
+rff audit where [--format json|text]
+rff audit status [--format json|text]
+rff audit plan validate
+rff audit attempt start ...
+rff audit attempt finish ...
+rff audit attempt batch ...
+rff audit hypothesis open ...
+rff audit hypothesis update ...
+rff audit investigation status
+rff audit report
+rff audit gate
+rff audit policy --fail-on FALSIFIED
+rff audit present --presentation chat|markdown|json
+rff audit compare --baseline ... --current ...
+rff audit export --export-format sarif
+rff audit abandon --reason ...
 ```
-
-Typical FEATURE request:
-
-```text
-Use $runtime-feature-falsifier to audit the upload-image feature.
-Do not modify implementation or tests.
-Try to falsify the claimed behavior through the real runtime surface.
-```
-
-For a whole-project audit, start with:
-
-```text
-/plan
-```
-
-Then ask Codex to discover the full capability universe and produce the SYSTEM audit strategy before leaving Plan Mode and executing runtime probes.
-
-## Google Antigravity 2.0
-
-Workspace installation:
-
-```text
-<project>/.agents/skills/runtime-feature-falsifier/
-<project>/.agents/agents/runtime-feature-auditor/agent.md
-```
-
-Use either the skill directly or select the dedicated `runtime-feature-auditor` custom agent.
-
-For SYSTEM audits, use Antigravity Planning Mode / an Implementation Plan artifact before runtime execution.
-
-Optional strict workspace hooks can be installed with:
-
-```bash
-rff init --here \
-  --integration antigravity2 \
-  --strict-google-hooks \
-  --force
-```
-
-Strict Google hooks are opt-in because `.agents/hooks.json` affects the whole workspace, not only an RFF audit.
-
-## Google Antigravity CLI
-
-The CLI executable is `agy`.
-
-RFF uses the same shared workspace skill and custom-agent locations as Antigravity 2.0:
-
-```text
-<project>/.agents/skills/runtime-feature-falsifier/
-<project>/.agents/agents/runtime-feature-auditor/agent.md
-```
-
-After installation:
-
-```bash
-cd /path/to/project
-agy
-```
-
-Then check:
-
-```text
-/skills
-/agents
-```
-
-You should see:
-
-```text
-runtime-feature-falsifier
-runtime-feature-auditor
-```
-
-For SYSTEM audits, use Antigravity CLI plan mode before starting runtime probes.
-
-## Gemini CLI
-
-Installed project-locally at:
-
-```text
-<project>/.agents/skills/runtime-feature-falsifier/
-```
-
-The portable skill contains the complete audit methodology and deterministic controller. Start a fresh Gemini CLI session after installing/updating if skill discovery appears stale.
-
-## OpenCode
-
-RFF intentionally uses OpenCode’s native project path rather than relying on `.agents/skills` compatibility:
-
-```text
-<project>/.opencode/
-├── skills/
-│   └── runtime-feature-falsifier/
-└── agents/
-    └── runtime-feature-auditor.md
-```
-
-The dedicated auditor denies OpenCode’s direct `edit` action, explicitly permits the RFF skill, and retains shell access for real runtime startup and probing.
-
-Select `runtime-feature-auditor`, or instruct the normal agent to load the exact skill ID:
-
-```text
-runtime-feature-falsifier
-```
-
-Restart OpenCode or begin a fresh session after installation/update so discovery refreshes.
-
-## Claude Code
-
-Installed at:
-
-```text
-<project>/.claude/
-├── skills/
-│   └── runtime-feature-falsifier/
-├── agents/
-│   └── runtime-feature-auditor.md
-└── runtime-feature-falsifier-hooks/
-```
-
-The dedicated Claude auditor preloads the skill and uses lifecycle hooks for additional enforcement, including final-gate behavior.
 
 ---
 
-# Audit workflow
-
-RFF’s normative protocol lives in [`runtime-feature-falsifier/SKILL.md`](runtime-feature-falsifier/SKILL.md).
-
-The high-level sequence is:
+# Audit lifecycle
 
 ```mermaid
-flowchart TD
-    A[Establish claimed contract] --> B[Initialize audit workspace]
-    B --> C[Build audit plan]
-    C --> D[Validate plan]
-    D --> E[Run environment_start]
-    E -->|SURVIVED| E2[Verify runtime identity]
-    E -->|Blocked| X[Record BLOCKED]
-    E2 --> E3[Collision/isolation check]
-    E3 -->|SURVIVED| F[Execute runtime probes]
-    F --> G{Suspicious / ambiguous?}
-    G -->|Yes| H[Persistent hypothesis investigation]
-    H --> F
-    G -->|No| I[Aggregate feature verdicts]
-    I --> J[Generate report]
-    J --> K[Run deterministic final gate]
-    K -->|Fail| F
-    K -->|Pass| L[Audit complete]
+stateDiagram-v2
+    [*] --> ACTIVE: rff audit init
+
+    ACTIVE --> ACTIVE: plan / attempts / hypotheses
+    ACTIVE --> REPORTED: rff audit report
+    REPORTED --> ACTIVE: canonical state changes
+    REPORTED --> SEALED: rff audit gate succeeds
+
+    ACTIVE --> ABANDONED: rff audit abandon
+    REPORTED --> ABANDONED: rff audit abandon
+
+    SEALED --> [*]
+    ABANDONED --> [*]
 ```
 
-## 1. Establish the claimed contract
+### Important lifecycle rule
 
-Before judging behavior, determine what the product actually promises.
+> **A sealed run is immutable history.**
 
-Priority:
-
-1. explicit user requirements / acceptance criteria,
-2. product or API documentation,
-3. UI copy / CLI help / public schema,
-4. implementation-facing docs/configuration,
-5. existing tests only as last-resort claim discovery.
-
-Tests may help discover claims, but **test success is not runtime proof**.
-
-## 2. Initialize the audit
-
-Audit artifacts live under:
+After remediation or a re-audit:
 
 ```text
-<project>/.runtime-feature-audit/
+do not reopen the sealed run
+→ initialize a new run
 ```
 
-Typical initialization:
+v2.9.5 enforces this in the controller. It is not merely agent guidance.
+
+## Example audit initialization
+
+Feature audit:
 
 ```bash
-python3 scripts/auditctl.py init \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
-  --target-root "<project-root>" \
-  --project-name "<project>" \
-  --environment "local" \
-  --scope "<requested scope>" \
+rff audit init \
+  --project-name my-project \
+  --environment local \
+  --scope "upload-image" \
   --mode feature
 ```
 
-For a SYSTEM audit:
+System audit:
 
 ```bash
-python3 scripts/auditctl.py init \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
-  --target-root "<project-root>" \
-  --project-name "<project>" \
-  --environment "local" \
+rff audit init \
+  --project-name my-project \
+  --environment local \
   --scope "whole project" \
   --mode system
 ```
 
-## 3. Build and validate the plan
-
-RFF requires a real documented startup procedure and an `environment_start` probe.
-
-The plan describes:
-
-- feature IDs,
-- claimed contracts,
-- real entry points,
-- expected effects,
-- dependencies,
-- whether the feature is input-sensitive,
-- whether it is stateful,
-- whether it is dependency-sensitive,
-- and the required falsification probes.
-
-Validate before execution:
+Then discover the run location:
 
 ```bash
-python3 scripts/auditctl.py validate-plan \
-  --audit-dir "<project-root>/.runtime-feature-audit"
+rff audit where --format json
 ```
 
-## 4. Run the three-stage preflight
-
-Regular feature probes are rejected until all three preflight probes have completed in order:
-
-1. `environment_start` — must complete as `SURVIVED`,
-2. `runtime_identity` — verify the actual process/server/container is running the intended app against the declared `runtime_identity_expectation`. A healthy container or `/healthz` response alone is not identity proof,
-3. `environment_collision` — must complete as `SURVIVED`; shared queues, DB schemas, buckets, ports, or tenants that could collide with tests or live workers must be isolated or recorded.
-
-All preflight and dependency-sensitive attempts require reproduction metadata.
-
-This does not cryptographically prove the agent used the intended public surface. Where that distinction matters, prefer stronger transport/runtime evidence such as:
-
-- browser traces,
-- HTTP request/response capture,
-- HAR/network evidence,
-- CLI command output,
-- retrieved downstream artifacts,
-- persistence/state inspection.
-
-## 5. Log probes before and after execution
-
-Single probe:
+Validate the completed plan before feature execution:
 
 ```bash
-python3 scripts/auditctl.py attempt-start \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
-  --feature-id upload-image \
-  --probe-id valid-png \
-  --action "Upload valid PNG through the real upload surface" \
-  --repro-command "<command-if-applicable>"
+rff audit plan validate
 ```
-
-Run the **real runtime action**, capture evidence, then finish it:
-
-```bash
-python3 scripts/auditctl.py attempt-finish \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
-  --attempt-id <attempt-id> \
-  --observed "<what actually happened>" \
-  --side-effect-check "<downstream observation>" \
-  --evidence <relative-evidence-path> \
-  --result <SURVIVED|FALSIFIED|BLOCKED|INCONCLUSIVE> \
-  --failure-pattern <pattern> \
-  --confidence <HIGH|MEDIUM|LOW>
-```
-
-## 6. Batch logging for large audits
-
-Large SYSTEM audits can pre-register multiple attempts in one hash-chained operation:
-
-```bash
-python3 scripts/auditctl.py attempt-batch \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
-  --input starts.json
-```
-
-Execute those already-registered probes, then ingest the results:
-
-```bash
-python3 scripts/auditctl.py attempt-batch \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
-  --input finishes.json
-```
-
-Batching reduces logging ceremony. It does **not** permit fabricated observations.
-
-## 7. Investigate ambiguity persistently
-
-Open a bounded hypothesis:
-
-```bash
-python3 scripts/auditctl.py hypothesis-open \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
-  --feature-id upload-image \
-  --statement "Uploader ignores input and returns canned output" \
-  --trigger-attempt-id <attempt-id> \
-  --next-probe "Upload distinct image and compare read-back" \
-  --max-attempts 6
-```
-
-Terminal hypothesis states are:
-
-```text
-REFUTED
-CONFIRMED
-BLOCKED
-BUDGET_EXHAUSTED
-```
-
-The final gate rejects unresolved `OPEN` or `SUPPORTED` hypotheses.
-
-## 8. Generate the report and pass the gate
-
-```bash
-python3 scripts/auditctl.py report \
-  --audit-dir "<project-root>/.runtime-feature-audit"
-```
-
-Then:
-
-```bash
-python3 scripts/auditctl.py gate \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
-  --require-report
-```
-
-**The audit is not complete until the gate exits `0`.**
-
-A successful completion gate means the audit protocol is internally complete and consistent. It does **not** mean all audited features are healthy.
-
-A passed gate **seals the run**. After remediation, spawn a fresh auditor and initialize a new workspace (for example `.runtime-feature-audit-run2/`) rather than appending to the sealed run.
 
 ---
 
-# Audit artifacts
+# FEATURE and SYSTEM modes
 
-A typical audit workspace contains:
+## `FEATURE`
+
+Use for:
+
+- one feature,
+- one capability,
+- an explicitly bounded set of behaviors.
+
+Example:
 
 ```text
-.runtime-feature-audit/
-├── audit-plan.json
-├── feature-inventory.json        # SYSTEM mode
-├── attempts.jsonl
-├── hypothesis-ledger.jsonl
-├── evidence/
-├── tracked-source-baseline.json
-├── feature-matrix.md
-├── system-coverage.md            # SYSTEM mode
-├── audit-report.md
-├── .active.json
-├── .report-state.json
-└── .complete.json
+Audit the upload-image feature.
 ```
 
-### Integrity model
+## `SYSTEM`
 
-RFF provides several layers of integrity checking:
+Use for requests such as:
 
-- STARTED/FINISHED two-phase attempt logging,
-- append-only hash-chained attempt history,
-- append-only hash-chained hypothesis history,
-- current chain-head hashes printed by controller responses,
-- cross-platform file locking for readers and writers,
-- JSON Schema Draft 7 structural validation,
-- semantic audit-plan validation,
-- Git-tracked source baseline comparison,
-- report freshness fingerprints,
-- three-stage preflight enforcement (startup health, runtime identity, environment collision),
-- sealed-run policy preventing workspace reuse after remediation,
-- terminology guard for retrospectives (`auditctl terminology-check`),
-- deterministic final completion gate.
+```text
+Audit every feature.
+Audit the entire project.
+Audit the whole system.
+```
 
-RFF is **tamper-evident, not tamper-proof**. An agent with unrestricted filesystem/shell privileges is not cryptographically sandboxed by this skill.
+SYSTEM is **not representative sampling**.
+
+A SYSTEM audit must:
+
+1. discover the runtime/product capability universe,
+2. create `feature-inventory.json`,
+3. classify every discovered capability,
+4. map every `IN_SCOPE` item into the audit plan,
+5. include meaningful cross-feature workflows,
+6. execute required runtime probes,
+7. account for blockers,
+8. pass the deterministic final gate.
+
+```mermaid
+flowchart LR
+    A[Discover capability universe]
+    B[feature-inventory.json]
+    C[IN_SCOPE / EXCLUDED]
+    D[Audit plan]
+    E[Runtime probes]
+    F[Cross-feature workflows]
+    G[Coverage]
+    H[Gate]
+
+    A --> B --> C --> D
+    D --> E --> G
+    D --> F --> G
+    G --> H
+```
+
+Unavailable dependencies are not a valid reason to silently exclude a feature. They produce `BLOCKED` evidence.
 
 ---
 
 # Probe strategy
 
-RFF favors probes that expose superficial implementations.
+RFF favors probes that reveal superficial implementations.
 
-Common probe intents include:
+Common probe intents:
 
 ```text
 baseline_valid
@@ -807,140 +683,506 @@ dependency_authenticity
 workflow_completion
 ```
 
-Useful differential/metamorphic patterns:
+Useful differential/metamorphic patterns include:
 
-- upload two different files and compare resulting state,
+- upload two materially different files and compare resulting state,
 - create two records with different values and read both back,
-- change a search query and confirm results respond causally,
-- change authenticated identity and confirm authorization/state follows it,
-- restart the application when persistence is claimed,
-- run the full advertised workflow rather than validating only the first response.
+- vary the query and confirm results respond causally,
+- change authenticated identity and verify authorization/state follows it,
+- restart when persistence is part of the contract,
+- validate downstream side effects instead of stopping at the first success response,
+- run the whole advertised workflow rather than one endpoint in isolation.
+
+### Example: weak vs falsification-first
+
+Weak:
+
+```text
+POST /upload image.png
+→ 201 Created
+→ PASS
+```
+
+Better:
+
+```text
+PNG A → 201 → /files/demo-image.png
+PNG B → 201 → /files/demo-image.png
+PDF   → 201 → /files/demo-image.png
+
+retrieved hash(A) == hash(B)
+```
+
+That supports investigation of a potential `HARDCODED`, `FAKE_NOOP`, or `BTTLP` implementation.
 
 ---
 
-# Example input matrix for image upload
+# Persistent investigation
 
-RFF does **not** assume every image format is supported. It first derives the contract, then classifies inputs as valid, invalid, boundary, or contract-unknown.
+Suspicious behavior does not automatically become a finding.
 
-A representative investigation can include:
+RFF uses bounded falsifiable hypotheses:
 
-### Claimed/possible image family
+```mermaid
+flowchart TD
+    A[Suspicious behavior]
+    B[Open hypothesis]
+    C[Design information-gaining probe]
+    D[Execute real runtime action]
+    E[Capture evidence]
+    F{Can hypothesis be disproved?}
+    G[REFUTED]
+    H[Change information-bearing variable]
+    I[CONFIRMED counterexample]
+    J[BLOCKED]
+    K[BUDGET_EXHAUSTED / INCONCLUSIVE]
 
-```text
-JPEG / JPG
-PNG
-GIF
-WebP
-TIFF / TIF
-SVG
-EPS
+    A --> B --> C --> D --> E --> F
+    F -->|Yes| G
+    F -->|No, still plausible| H --> C
+    F -->|Counterexample confirmed| I
+    F -->|Cannot continue| J
+    F -->|Budget exhausted| K
 ```
 
-### Structural variations
+Blind retries do not count as persistence.
 
-```text
-tiny image
-normal image
-large image
-wide/tall aspect ratios
-transparency
-animation
-metadata
-Unicode filenames
-spaces in filenames
-mixed-case extensions
-```
+A repeated probe must either:
 
-### Content/metadata mismatch
-
-```text
-correct extension + correct MIME
-wrong extension
-wrong MIME
-text renamed to .png
-missing content type
-truncated file
-empty file
-```
-
-### Non-image families
-
-```text
-TXT
-JSON
-source code
-PDF
-DOCX
-PPTX
-ZIP
-```
-
-The expected result depends on the documented product contract. Correctly rejecting an unsupported TIFF, for example, is not a defect merely because TIFF exists as an image format.
+- change an information-bearing variable, or
+- document why an unchanged repetition is useful for nondeterminism/reproducibility analysis.
 
 ---
 
-# SYSTEM audits
+# Integrity and trust model
 
-A whole-project request is binding.
+v2.9.5 uses multiple independent integrity layers.
 
-If the user asks:
+```mermaid
+flowchart TD
+    G[audit-genesis.json]
+    B[tracked-source-baseline.json]
+    P[audit-plan.json]
+    I[feature-inventory.json]
+    A[attempts.jsonl hash chain]
+    H[hypothesis-ledger.jsonl hash chain]
+    R[audit-result.json]
+    M[result-manifest.json]
+    S[.complete.json seal]
 
-```text
-Audit every feature in this system.
+    G --> M
+    B --> G
+    P --> M
+    I --> M
+    A --> M
+    H --> M
+    R --> M
+    M --> S
+    R --> S
 ```
 
-RFF must not silently turn it into:
+## 1. Strict canonical input handling
+
+Canonical security-sensitive JSON rejects:
+
+- duplicate object keys,
+- `NaN`,
+- `Infinity`,
+- unsafe canonical integer values,
+- floats in the canonical v1 result profile,
+- invalid Unicode scalar values.
+
+## 2. Full schema validation
+
+RFF ships its validator with the skill and resolves bundled schemas locally.
+
+The runtime remains offline-capable.
+
+## 3. Semantic re-derivation
+
+Stored projections are not trusted merely because they pass schema validation.
+
+RFF re-derives and checks items such as:
+
+- verdict counts,
+- feature coverage,
+- finding relationships,
+- hypothesis budgets,
+- canonical result state.
+
+## 4. Immutable audit genesis
+
+At initialization RFF writes:
 
 ```text
-I tested login, upload, and search as representative features.
+audit-genesis.json
 ```
 
-Instead it builds a feature universe using multiple discovery surfaces such as:
+It binds the original tracked-source baseline and snapshot format.
 
-- user/product documentation,
-- UI routes/navigation,
-- API routes/schema,
-- CLI commands,
-- public SDK exports,
-- jobs/events/webhooks,
-- feature registrations,
-- relevant implementation-facing discovery.
+This prevents a modified source tree from being “made clean again” by simply refreshing the baseline during the audit.
 
-Each discovered item is reconciled as either:
+Native v2.9.5 Git source snapshots include:
+
+- file content,
+- Git-significant worktree type,
+- executable state.
+
+## 5. Hash-chained ledgers
+
+Attempts and persistent-investigation hypotheses are append-only hash chains.
+
+Writers refuse to append when the existing chain is corrupt.
+
+## 6. Audit-wide control lock
+
+v2.9.5 serializes stateful read/check/write operations under one workspace-level control lock.
+
+The goal is not merely valid JSONL bytes; it is valid **semantic transitions**.
+
+## 7. Provenance-bound manifest
+
+`result-manifest.json` binds canonical output to:
+
+- audit genesis,
+- source baseline,
+- plan,
+- SYSTEM inventory when present,
+- current attempt chain head,
+- current hypothesis chain head,
+- canonical result,
+- seal metadata.
+
+## 8. Seal-last finalization
+
+The final seal is the logical commit record.
 
 ```text
-IN_SCOPE
-EXCLUDED with a legitimate documented reason
+prepare / validate
+      ↓
+replace canonical result
+      ↓
+replace manifest
+      ↓
+durability barrier
+      ↓
+install final seal LAST
+      ↓
+sealed immutable run
 ```
 
-Unavailable dependencies do not make a feature “excluded.” They produce `BLOCKED` attempts.
+Partial finalization states fail closed.
 
-Meaningful cross-feature workflows should also be represented, for example:
+Recovery may recognize an interrupted transition, but only a fully successful gate may install the authoritative current seal.
+
+## 9. Validated readers
+
+These commands consume the same integrity boundary:
 
 ```text
-register
-→ login
-→ upload
-→ search
-→ open
-→ delete
-→ confirm deletion
+present
+policy
+export
+compare
 ```
+
+A tampered raw result cannot be used as a valid comparison baseline/history record.
+
+---
+
+## Tamper-evident, not omnipotent
+
+RFF is **tamper-evident, not tamper-proof**.
+
+v2.9.5 provides strong internal consistency and lifecycle integrity inside the audit workspace.
+
+It does not provide an external cryptographic identity against an attacker capable of coherently rewriting the entire workspace, all manifests, and all seals.
+
+That stronger distributed/external authenticity model is deliberately outside the v2.9 threat model.
+
+---
+
+# Audit artifacts
+
+Default output root:
+
+```text
+.runtime-feature-audit/
+```
+
+The path is configurable.
+
+Typical v2.9.5 layout:
+
+```text
+<output-root>/
+├── active.json
+├── latest.json
+└── runs/
+    └── rff-<uuidv7>/
+        ├── audit-plan.json
+        ├── audit-genesis.json
+        ├── tracked-source-baseline.json
+        ├── feature-inventory.json          # SYSTEM mode
+        ├── attempts.jsonl
+        ├── hypothesis-ledger.jsonl
+        ├── evidence/
+        ├── audit-result.json
+        ├── findings.json
+        ├── result-manifest.json
+        ├── audit-summary.md
+        ├── feature-matrix.md
+        ├── system-coverage.md              # SYSTEM mode
+        ├── audit-report.md
+        ├── .report-state.json
+        ├── .active.json
+        └── .complete.json                  # current digest-bound seal
+```
+
+### Canonical vs projection
+
+The canonical final result is:
+
+```text
+audit-result.json
+```
+
+Other outputs such as:
+
+```text
+findings.json
+audit-summary.md
+feature-matrix.md
+audit-report.md
+SARIF
+rff audit present
+```
+
+are derived projections or presentations of canonical state.
+
+Agents should not manually author canonical output files.
+
+Generate them through the control plane:
+
+```bash
+rff audit report
+rff audit gate
+rff audit present --presentation chat
+```
+
+---
+
+# History, compare, policy, and SARIF
+
+## Compare sealed runs
+
+```bash
+rff audit compare \
+  --baseline rff-<old-run-id> \
+  --current rff-<new-run-id>
+```
+
+RFF classifies findings by stable semantic fingerprint:
+
+```text
+NEW
+PERSISTING
+RESOLVED
+REGRESSED
+```
+
+Comparison history is validated before it can influence classification.
+
+## Apply product policy
+
+```bash
+rff audit policy --fail-on FALSIFIED
+```
+
+Multiple rules:
+
+```bash
+rff audit policy \
+  --fail-on FALSIFIED \
+  --fail-on BLOCKED \
+  --fail-on SEVERITY_HIGH \
+  --fail-on SEVERITY_CRITICAL
+```
+
+## Export SARIF
+
+```bash
+rff audit export --export-format sarif
+```
+
+Default output:
+
+```text
+rff-results.sarif
+```
+
+This allows downstream tooling to consume canonical findings without redefining RFF verdict semantics.
+
+---
+
+# Supported agents
+
+RFF is portable at the core and adds host-specific companions only where useful.
+
+| Host | Integration key | Installed project path | Dedicated auditor / hooks |
+| --- | --- | --- | --- |
+| **Codex CLI** | `codex` | `.agents/skills/runtime-feature-falsifier/` | Portable skill |
+| **Google Antigravity 2.0** | `antigravity2` | `.agents/skills/runtime-feature-falsifier/` | Dedicated auditor; optional strict hooks |
+| **Google Antigravity CLI** | `antigravity-cli` | `.agents/skills/runtime-feature-falsifier/` | Dedicated auditor; optional strict hooks |
+| **Gemini CLI** | `gemini` | `.agents/skills/runtime-feature-falsifier/` | Portable skill |
+| **OpenCode** | `opencode` | `.opencode/skills/runtime-feature-falsifier/` | Dedicated auditor |
+| **Claude Code** | `claude` | `.claude/skills/runtime-feature-falsifier/` | Dedicated auditor + lifecycle hooks |
+
+## Codex CLI
+
+Install:
+
+```bash
+rff init --here --integration codex
+```
+
+Project location:
+
+```text
+.agents/skills/runtime-feature-falsifier/
+```
+
+For SYSTEM audits, use a planning pass before execution.
+
+## Antigravity 2.0 / Antigravity CLI
+
+Install:
+
+```bash
+rff init --here --integration antigravity2
+rff init --here --integration antigravity-cli
+```
+
+Shared workspace locations:
+
+```text
+.agents/skills/runtime-feature-falsifier/
+.agents/agents/runtime-feature-auditor/
+```
+
+Optional strict workspace hooks:
+
+```bash
+rff init --here \
+  --integration antigravity2 \
+  --strict-google-hooks \
+  --force
+```
+
+Strict Google hooks are opt-in because workspace hook configuration affects more than an individual audit.
+
+## Gemini CLI
+
+```bash
+rff init --here --integration gemini
+```
+
+Installed under:
+
+```text
+.agents/skills/runtime-feature-falsifier/
+```
+
+## OpenCode
+
+```bash
+rff init --here --integration opencode
+```
+
+Native project layout:
+
+```text
+.opencode/
+├── skills/
+│   └── runtime-feature-falsifier/
+└── agents/
+    └── runtime-feature-auditor.md
+```
+
+The dedicated auditor denies direct editor actions while retaining shell/runtime capabilities needed for real probing.
+
+## Claude Code
+
+```bash
+rff init --here --integration claude
+```
+
+Layout:
+
+```text
+.claude/
+├── skills/
+│   └── runtime-feature-falsifier/
+├── agents/
+│   └── runtime-feature-auditor.md
+└── runtime-feature-falsifier-hooks/
+```
+
+Claude-specific lifecycle hooks provide additional defense-in-depth around mutation and final-gate behavior.
+
+---
+
+# Output configuration
+
+RFF output is configurable through project-local `.rff.toml`.
+
+```toml
+[audit]
+output_dir = ".artifacts/rff"
+```
+
+Inspect current configuration:
+
+```bash
+rff config show
+```
+
+Set it:
+
+```bash
+rff config set audit.output_dir .artifacts/rff
+```
+
+Resolve the authoritative active/latest location instead of hardcoding paths:
+
+```bash
+rff audit where --format json
+```
+
+Resolution order:
+
+1. explicit `--output-dir`,
+2. project `.rff.toml`,
+3. `.runtime-feature-audit`.
+
+RFF rejects unsafe/reserved output locations. Deep placement requires an explicit override.
+
+An active run cannot silently move to another output root.
 
 ---
 
 # Safety and scope
 
-RFF is a runtime feature auditor, not an authorization bypass or destructive testing framework.
+RFF is a runtime feature falsifier — not an authorization bypass, destructive testing framework, or generic penetration-testing engine.
 
 Default boundaries:
 
 - prefer local or explicitly authorized staging environments,
-- do not probe production unless the user explicitly authorizes it,
-- do not perform destructive, denial-of-service, exploit, credential, or production-impacting probes unless separately scoped and authorized,
+- do not probe production unless explicitly authorized,
+- do not perform destructive/DoS/exploit/credential-impacting probes unless separately scoped,
 - do not modify target source/tests/configuration to make behavior pass,
-- runtime state naturally produced by using the application is allowed,
-- if a real dependency cannot be exercised, report `BLOCKED` rather than substituting a mock.
+- runtime state naturally produced by normal product use is allowed,
+- if a real dependency cannot be exercised, report `BLOCKED` instead of replacing it with a mock.
 
 RFF is not a replacement for:
 
@@ -951,9 +1193,9 @@ RFF is not a replacement for:
 - load testing,
 - formal verification.
 
-It answers a different question:
+It answers a narrower question:
 
-> **Does the claimed product behavior survive direct runtime falsification attempts?**
+> **Does the claimed product behavior survive direct runtime falsification attempts under the declared audit plan?**
 
 ---
 
@@ -961,85 +1203,101 @@ It answers a different question:
 
 ```text
 runtime-feature-falsifier/
+├── README.md
 ├── CHANGELOG.md
 ├── INTEGRATION-NOTES.md
 ├── VERSION
+├── SHA256SUMS.txt
 ├── install.sh
 ├── installer.py
 ├── pyproject.toml
+├── setup.py
 ├── self-test.sh
 ├── dist/
-│   └── runtime_feature_falsifier_cli-<version>-py3-none-any.whl
+│   └── runtime_feature_falsifier_cli-2.9.5-py3-none-any.whl
+│
 ├── runtime-feature-falsifier/
-│   ├── SKILL.md
+│   ├── SKILL.md                    # normative audit semantics
 │   ├── VERSION
 │   ├── LICENSE
 │   ├── agents/
-│   │   └── openai.yaml
-│   ├── assets/
-│   ├── references/
+│   ├── assets/                     # JSON schemas
+│   ├── references/                 # protocol / host references
 │   ├── scripts/
-│   │   └── auditctl.py
+│   │   └── auditctl.py             # deterministic controller
+│   ├── licenses/
 │   └── vendor/
+│       └── fastjsonschema/
+│
 ├── claude-code/
 ├── google-antigravity/
 ├── opencode/
 ├── src/runtime_feature_falsifier_cli/
+│
 └── tests/
     ├── evals/
+    ├── fixtures/
     ├── teaching-corpus/
     └── tools/
 ```
 
-`runtime-feature-falsifier/SKILL.md` is the **normative source of audit semantics**. Reference files may elaborate host-specific procedures and examples but must not redefine verdicts, retry rules, hard invariants, or completion conditions.
+`runtime-feature-falsifier/SKILL.md` is the **normative source of audit semantics**.
+
+Reference files may elaborate examples, procedures, control-plane output, and host-specific behavior, but they must not redefine core verdict semantics or completion conditions.
 
 ---
 
-# Self-test
+# Self-test and release validation
 
-Run the distribution self-test before publishing or after modifying the skill:
+Run:
 
 ```bash
 ./self-test.sh
 ```
 
-The repository includes intentionally broken teaching fixtures for patterns such as:
+The distribution includes teaching and adversarial regression coverage for areas such as:
 
-```text
-FAKE_NOOP
-TODO
-HARDCODED
-MOCK_ONLY
-BTTLP
-```
-
-It also includes regressions for:
-
-- varied runtime input matrices,
+- `TODO`,
+- `FAKE_NOOP`,
+- `HARDCODED`,
+- `MOCK_ONLY`,
+- `BTTLP`,
+- varied input matrices,
 - SYSTEM anti-sampling,
 - persistent investigation,
-- startup/identity/collision preflight and reproduction requirements,
-- batch logging,
+- runtime identity/collision preflight,
 - concurrent writers,
-- locked readers,
-- JSON Schema validation,
-- reporting terminology and sealed workspaces,
-- installer/update layouts,
-- and supported-agent packaging.
+- reader locking,
+- strict schema validation,
+- duplicate JSON keys,
+- canonical-number rules,
+- semantic projection forgery,
+- provenance tampering,
+- historical seal migration,
+- seal metadata tampering,
+- sealed-run mutation attempts,
+- lifecycle races,
+- immutable genesis/baseline attacks,
+- corrupt ledger extension,
+- duplicate attempt IDs,
+- Git executable-bit changes,
+- validated compare/history,
+- source/payload/wheel parity,
+- installer/update layouts.
 
-The teaching fixtures are for validating **RFF itself**. They are not permission to use a target project’s test suite as proof of feature behavior.
+Release tooling also verifies the packaged skill, embedded CLI payload, and prebuilt wheel remain synchronized.
 
 ---
 
-# Installing from a published Git repository
+# Installing from Git
 
-Once you publish the project, the CLI package is structured for a Spec-Kit-style installation flow.
+The package supports `uv tool install`.
 
-Example:
+From the v2.9.5 tag:
 
 ```bash
 uv tool install runtime-feature-falsifier-cli \
-  --from git+https://github.com/<owner>/<repo>.git@v2.8.0
+  --from git+https://github.com/saltless-bruh/runtime-feature-falsifier.git@v2.9.5
 ```
 
 Then:
@@ -1048,20 +1306,18 @@ Then:
 rff init --here
 ```
 
-Or directly:
+or:
 
 ```bash
 rff init --here --integration codex
 ```
 
-Upgrade from a specific release/source:
+Upgrade explicitly:
 
 ```bash
 rff self upgrade \
-  --from git+https://github.com/<owner>/<repo>.git@v2.8.0
+  --from git+https://github.com/saltless-bruh/runtime-feature-falsifier.git@v2.9.5
 ```
-
-Automatic “latest release” discovery is intentionally not claimed until the repository has a canonical public release channel.
 
 ---
 
@@ -1073,16 +1329,19 @@ Automatic “latest release” discovery is intentionally not claimed until the 
 Use runtime-feature-falsifier to audit the upload-image feature.
 
 Do not modify implementation or tests.
-Determine the claimed contract first, start the application through its real
-supported startup path, and attempt to falsify the feature through the real
-runtime entry point.
+
+Determine the claimed contract first. Start the application through its real
+supported startup path, verify runtime identity and environment isolation, and
+attempt to falsify the feature through its real public runtime surface.
 
 Use valid variations, invalid inputs, boundaries, causal/differential probes,
 state-transition checks, round-trip retrieval, persistence, and dependency
 authenticity where applicable.
 
 Persist on ambiguous or intermittent behavior using bounded hypotheses and
-information-gaining retries. Finish only when the deterministic audit gate
+information-gaining retries.
+
+Generate canonical results and finish only when the deterministic audit gate
 passes.
 ```
 
@@ -1091,69 +1350,111 @@ passes.
 ```text
 Use runtime-feature-falsifier in SYSTEM mode to audit this entire project.
 
-Do not use representative sampling. First perform read-only discovery and
-build the complete runtime/product feature inventory. Map every in-scope
-capability and meaningful cross-feature workflow into the audit plan.
+Do not use representative sampling.
 
-Do not modify implementation or tests. Run the real application, exercise the
-real public runtime surfaces, preserve every attempt and blocker, investigate
-ambiguous failures persistently, and finish only when the SYSTEM completion
-gate passes.
+First perform read-only discovery and build the complete runtime/product
+feature inventory. Map every in-scope capability and meaningful cross-feature
+workflow into the audit plan.
+
+Do not modify implementation or tests. Run the real application, exercise
+the real public runtime surfaces, preserve every attempt and blocker,
+investigate ambiguous failures persistently, and finish only when the SYSTEM
+completion gate passes.
 ```
 
 ---
 
 # Design principles
 
-RFF is built around a few deliberately strict ideas:
-
 1. **Runtime behavior beats source appearance.**
 2. **A success response is not the same as the advertised effect.**
 3. **Tests are evidence about tests, not proof of runtime reality.**
 4. **The auditor must not repair the target while auditing it.**
 5. **Persistence belongs to investigation, not to forcing a green result.**
-6. **A failure hypothesis should be challenged, not merely confirmed.**
-7. **Large audits need machine-checkable inventory and coverage, not memory.**
-8. **Logging must be cheap enough that agents have little incentive to fake it.**
-9. **Completion is a deterministic gate, not a feeling.**
-10. **`NOT_FALSIFIED` is scoped evidence, not proof of correctness.**
+6. **Failure hypotheses should be challenged, not merely confirmed.**
+7. **SYSTEM audits require machine-checkable inventory and coverage.**
+8. **Canonical state must be independently re-derived where practical.**
+9. **Audit validity and product acceptance are separate.**
+10. **A sealed run is immutable history.**
+11. **Readers must validate before consuming canonical results.**
+12. **`NOT_FALSIFIED` is scoped evidence, never proof of correctness.**
+13. **Completion is a deterministic gate, not an agent feeling.**
 
 ---
 
 # Known limitations
 
-- RFF is not a complete sandbox. An agent with unrestricted shell/filesystem privileges can still attempt mutation; tracked-source baselines, host permissions, hooks, and final gates are defense-in-depth.
-- Hash chaining is tamper-evident, not cryptographically tamper-proof against an actor that controls the entire workspace. Controller chain heads are emitted to the session transcript to strengthen external evidence.
-- A reproduction command, startup probe, and runtime-identity check do not mathematically prove that an agent used the intended public surface or the intended build. Capture browser/network/CLI transport evidence when that distinction matters.
-- Exhaustive SYSTEM audits can be expensive. Batch logging reduces controller ceremony, but real feature coverage still requires real execution.
-- Feature discovery can be incomplete when product surfaces or credentials are unavailable. Report this explicitly rather than claiming complete coverage.
+- RFF does not cryptographically sandbox an agent that controls the entire workspace.
+- Hashes, manifests, genesis, and seals provide strong **internal tamper evidence**, not external identity.
+- A runtime-identity probe and reproduction metadata do not mathematically prove that every action traversed the intended public transport. Capture HAR/network/browser/CLI evidence where that distinction matters.
+- Exhaustive SYSTEM audits can be expensive.
+- Feature discovery may be incomplete when credentials, documentation, or product surfaces are unavailable.
+- POSIX crash durability is stronger than what can be uniformly guaranteed across every operating system/filesystem combination.
+- Exotic Git layouts and very large monorepos may require additional operational tuning.
+- RFF v2.x primarily audits locally observable runtime claims. Distributed causal-chain verification across CI/CD, RAG pipelines, remote agents, and autonomous systems is a separate future design problem.
+
+---
+
+# Roadmap
+
+v2.9.5 is intended to be a stable local control-plane baseline.
+
+Future work is expected to be driven by **real battle testing**, especially where important transitions happen autonomously rather than directly in front of a human:
+
+- RAG ingestion / indexing / retrieval,
+- CI → build → artifact → deploy lineage,
+- Kubernetes rollout identity,
+- database replication,
+- event/queue delivery,
+- cache invalidation,
+- model/index promotion,
+- multi-agent workflows.
+
+The current v3 design direction is exploring **scoped falsification of distributed state transitions** rather than simply adding more local probes.
+
+v3 is not defined as “RFF becomes MCP” or “RFF becomes a daemon.” CLI, MCP, CI adapters, SDKs, and services are interfaces around the verification core, not substitutes for the verification model.
 
 ---
 
 # Contributing
 
-Changes to the audit protocol should preserve these boundaries:
+Protocol changes should preserve the following boundaries:
 
 - `SKILL.md` remains normative,
-- target code/tests stay read-only during audits,
+- target code/tests remain read-only during audits,
 - runtime evidence remains primary,
-- `NOT_FALSIFIED` must never become “verified,”
+- `NOT_FALSIFIED` must never be inflated into “verified” or “proven,”
 - SYSTEM mode must not silently sample,
-- controller state must remain schema-validated and integrity-checked,
+- canonical state must remain schema-validated and integrity-checked,
+- sealed runs remain immutable,
+- reader commands validate their inputs,
+- policy remains separate from audit validity,
 - host-specific integrations must not weaken the portable core.
 
-Before opening a pull request, run:
+Before opening a pull request:
 
 ```bash
 ./self-test.sh
 ```
 
-When changing an integration, also verify its install/update path using the relevant `rff init --integration ...` command.
+When changing an integration, also test its install/update path with the relevant:
+
+```bash
+rff init --integration ...
+```
 
 ---
 
 # License
 
-Runtime Feature Falsifier is distributed under the **MIT License**. See [`runtime-feature-falsifier/LICENSE`](runtime-feature-falsifier/LICENSE).
+Runtime Feature Falsifier is distributed under the **MIT License**.
 
-The bundled `fastjsonschema` dependency retains its upstream BSD license and attribution under `runtime-feature-falsifier/licenses/`.
+See:
+
+[`runtime-feature-falsifier/LICENSE`](runtime-feature-falsifier/LICENSE)
+
+The bundled `fastjsonschema` dependency retains its upstream BSD license and attribution under:
+
+```text
+runtime-feature-falsifier/licenses/
+```

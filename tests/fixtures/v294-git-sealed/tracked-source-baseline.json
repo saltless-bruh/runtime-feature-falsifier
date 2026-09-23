@@ -1,0 +1,9 @@
+{
+  "available": true,
+  "files": {
+    "tracked.txt": "25718360e05d3c2d0963d1381e9dd4dae5fca789244ee4b9f861adcc0cc96218"
+  },
+  "git_root": "/mnt/data/v294-fixture-git-tmp/project",
+  "head": "10945e3a85a968022a6cd857b25b095734bc21e8",
+  "tracked_file_count": 1
+}

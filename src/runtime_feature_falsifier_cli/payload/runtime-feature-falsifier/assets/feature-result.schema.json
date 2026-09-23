@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://runtime-feature-falsifier.dev/schema/feature-result.schema.json",
+  "title": "Runtime Feature Falsifier feature result",
+  "type": "object",
+  "required": [
+    "feature_id",
+    "claim",
+    "verdict",
+    "implementation_patterns",
+    "probe_summary",
+    "finding_ids"
+  ],
+  "properties": {
+    "feature_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "claim": {
+      "type": "string"
+    },
+    "verdict": {
+      "enum": [
+        "FALSIFIED",
+        "NOT_FALSIFIED",
+        "BLOCKED",
+        "INCONCLUSIVE",
+        "INCOMPLETE"
+      ]
+    },
+    "implementation_patterns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "probe_summary": {
+      "type": "object",
+      "required": [
+        "terminal_attempts",
+        "required_missing"
+      ],
+      "properties": {
+        "terminal_attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "required_missing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "finding_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^RFF-[0-9]{3,}$"
+      }
+    }
+  },
+  "additionalProperties": false
+}

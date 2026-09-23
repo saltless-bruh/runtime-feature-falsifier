@@ -3,6 +3,7 @@
 from __future__ import annotations
 import importlib.util
 from pathlib import Path
+import json
 
 ROOT = Path(__file__).resolve().parents[2]
 CTL = ROOT / "runtime-feature-falsifier" / "scripts" / "auditctl.py"
@@ -42,12 +43,46 @@ def main() -> int:
         errors = ctl.validate_schema(case, schema)
         assert errors, f"standards-compliant validator unexpectedly accepted {case!r}"
 
+    # v2.22.x fixes JSON equality so Python bool/int equality cannot satisfy
+    # JSON Schema enum/const accidentally (True != 1 and False != 0 in JSON).
+    equality_regressions = [
+        ({"enum": [1]}, True),
+        ({"const": 1}, True),
+        ({"enum": [False]}, 0),
+        ({"const": False}, 0),
+    ]
+    for fragment, instance in equality_regressions:
+        typed = {"$schema": "http://json-schema.org/draft-07/schema#", **fragment}
+        assert ctl.validate_schema(instance, typed), (fragment, instance)
+    assert ctl.validate_schema(1, {"$schema": "http://json-schema.org/draft-07/schema#", "enum": [1]}) == []
+    assert ctl.validate_schema(False, {"$schema": "http://json-schema.org/draft-07/schema#", "const": False}) == []
+
+    assert ctl.fastjsonschema.VERSION == "2.22.2", ctl.fastjsonschema.VERSION
     vendor_path = Path(ctl.fastjsonschema.__file__).resolve()
     assert ROOT / "runtime-feature-falsifier" / "vendor" in vendor_path.parents, vendor_path
-    for schema_path in (ROOT / "runtime-feature-falsifier" / "assets").glob("*.schema.json"):
-        data = schema_path.read_text(encoding="utf-8")
-        assert '"$schema": "http://json-schema.org/draft-07/schema#"' in data, schema_path
-    print("PASS: vendored fastjsonschema enforces Draft 7 keywords beyond the former mini-validator subset")
+    legacy_draft7 = {
+        "audit-plan.schema.json",
+        "attempt-event.schema.json",
+        "attempt-batch.schema.json",
+        "feature-inventory.schema.json",
+        "hypothesis-event.schema.json",
+    }
+    canonical_draft7 = {
+        "audit-result.schema.json",
+        "finding.schema.json",
+        "findings.schema.json",
+        "feature-result.schema.json",
+        "artifact-reference.schema.json",
+        "result-manifest.schema.json",
+    }
+    assets = ROOT / "runtime-feature-falsifier" / "assets"
+    for name in legacy_draft7:
+        data = json.loads((assets / name).read_text(encoding="utf-8"))
+        assert data.get("$schema") == "http://json-schema.org/draft-07/schema#", name
+    for name in canonical_draft7:
+        data = json.loads((assets / name).read_text(encoding="utf-8"))
+        assert data.get("$schema") == "http://json-schema.org/draft-07/schema#", name
+    print("PASS: vendored fastjsonschema 2.22.2 enforces Draft 7 and JSON bool/number equality correctly")
     return 0
 
 

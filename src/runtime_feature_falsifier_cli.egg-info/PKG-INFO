@@ -1,0 +1,7 @@
+Metadata-Version: 2.4
+Name: runtime-feature-falsifier-cli
+Version: 2.9.5
+Summary: CLI installer and project bootstrapper for Runtime Feature Falsifier Agent Skill
+License-Expression: MIT
+Keywords: agent-skills,codex,claude,gemini,antigravity,opencode,runtime-audit
+Requires-Python: >=3.11

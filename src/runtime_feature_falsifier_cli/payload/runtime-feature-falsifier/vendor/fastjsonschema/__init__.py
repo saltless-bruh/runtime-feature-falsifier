@@ -110,7 +110,13 @@ from functools import partial, update_wrapper
 from .draft04 import CodeGeneratorDraft04
 from .draft06 import CodeGeneratorDraft06
 from .draft07 import CodeGeneratorDraft07
-from .exceptions import JsonSchemaException, JsonSchemaValueException, JsonSchemaDefinitionException
+from .draft2019 import CodeGeneratorDraft2019
+from .exceptions import (
+    JsonSchemaException,
+    JsonSchemaValueException,
+    JsonSchemaValuesException,
+    JsonSchemaDefinitionException,
+)
 from .ref_resolver import RefResolver
 from .version import VERSION
 
@@ -118,6 +124,7 @@ __all__ = (
     'VERSION',
     'JsonSchemaException',
     'JsonSchemaValueException',
+    'JsonSchemaValuesException',
     'JsonSchemaDefinitionException',
     'validate',
     'compile',
@@ -125,7 +132,7 @@ __all__ = (
 )
 
 
-def validate(definition, data, handlers={}, formats={}, use_default=True, use_formats=True, detailed_exceptions=True):
+def validate(definition: dict | bool, data, handlers: dict = {}, formats: dict = {}, use_default: bool = True, use_formats: bool = True, detailed_exceptions: bool = True, fast_fail: bool = True):
     """
     Validation function for lazy programmers or for use cases when you need
     to call validation only once, so you do not have to compile it first.
@@ -141,12 +148,12 @@ def validate(definition, data, handlers={}, formats={}, use_default=True, use_fo
 
     Preferred is to use :any:`compile` function.
     """
-    return compile(definition, handlers, formats, use_default, use_formats, detailed_exceptions)(data)
+    return compile(definition, handlers, formats, use_default, use_formats, detailed_exceptions, fast_fail)(data)
 
 
 #TODO: Change use_default to False when upgrading to version 3.
 # pylint: disable=redefined-builtin,dangerous-default-value,exec-used
-def compile(definition, handlers={}, formats={}, use_default=True, use_formats=True, detailed_exceptions=True):
+def compile(definition: dict | bool, handlers: dict = {}, formats: dict = {}, use_default: bool = True, use_formats: bool = True, detailed_exceptions: bool = True, fast_fail: bool = True):
     """
     Generates validation function for validating JSON schema passed in ``definition``.
     Example:
@@ -211,7 +218,7 @@ def compile(definition, handlers={}, formats={}, use_default=True, use_formats=T
     Exception :any:`JsonSchemaValueException` is raised from generated function when
     validation fails (data do not follow the definition).
     """
-    resolver, code_generator = _factory(definition, handlers, formats, use_default, use_formats, detailed_exceptions)
+    resolver, code_generator = _factory(definition, handlers, formats, use_default, use_formats, detailed_exceptions, fast_fail)
     global_state = code_generator.global_state
     # Do not pass local state so it can recursively call itself.
     exec(code_generator.func_code, global_state)
@@ -222,7 +229,7 @@ def compile(definition, handlers={}, formats={}, use_default=True, use_formats=T
 
 
 # pylint: disable=dangerous-default-value
-def compile_to_code(definition, handlers={}, formats={}, use_default=True, use_formats=True, detailed_exceptions=True):
+def compile_to_code(definition: dict | bool, handlers: dict = {}, formats: dict = {}, use_default: bool = True, use_formats: bool = True, detailed_exceptions: bool = True, fast_fail: bool = True):
     """
     Generates validation code for validating JSON schema passed in ``definition``.
     Example:
@@ -245,7 +252,7 @@ def compile_to_code(definition, handlers={}, formats={}, use_default=True, use_f
     Exception :any:`JsonSchemaDefinitionException` is raised when generating the
     code fails (bad definition).
     """
-    _, code_generator = _factory(definition, handlers, formats, use_default, use_formats, detailed_exceptions)
+    _, code_generator = _factory(definition, handlers, formats, use_default, use_formats, detailed_exceptions, fast_fail)
     return (
         'VERSION = "' + VERSION + '"\n' +
         code_generator.global_state_code + '\n' +
@@ -253,7 +260,7 @@ def compile_to_code(definition, handlers={}, formats={}, use_default=True, use_f
     )
 
 
-def _factory(definition, handlers, formats={}, use_default=True, use_formats=True, detailed_exceptions=True):
+def _factory(definition: dict | bool, handlers: dict, formats: dict = {}, use_default: bool = True, use_formats: bool = True, detailed_exceptions: bool = True, fast_fail: bool = True):
     resolver = RefResolver.from_schema(definition, handlers=handlers, store={})
     code_generator = _get_code_generator_class(definition)(
         definition,
@@ -262,11 +269,12 @@ def _factory(definition, handlers, formats={}, use_default=True, use_formats=Tru
         use_default=use_default,
         use_formats=use_formats,
         detailed_exceptions=detailed_exceptions,
+        fast_fail=fast_fail,
     )
     return resolver, code_generator
 
 
-def _get_code_generator_class(schema):
+def _get_code_generator_class(schema: dict | bool):
     # Schema in from draft-06 can be just the boolean value.
     if isinstance(schema, dict):
         schema_version = schema.get('$schema', '')
@@ -274,4 +282,8 @@ def _get_code_generator_class(schema):
             return CodeGeneratorDraft04
         if 'draft-06' in schema_version:
             return CodeGeneratorDraft06
-    return CodeGeneratorDraft07
+        if 'draft-07' in schema_version:
+            return CodeGeneratorDraft07
+        if 'draft/2019' in schema_version or 'draft-2019' in schema_version:
+            return CodeGeneratorDraft2019
+    return CodeGeneratorDraft2019

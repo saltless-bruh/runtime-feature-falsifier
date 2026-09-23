@@ -37,53 +37,49 @@ Do not try to prove a feature is "real" or "alive." A finite set of successful p
 11. **Do not finalise until the deterministic audit gate passes.** Findings may be `FALSIFIED`; incompleteness or unresolved hypotheses may not be hidden.
 12. **Runtime preflight is three-stage and reproducible.** Record the real startup path and expected runtime identity; complete required `environment_start`, `runtime_identity`, and `environment_collision` probes. Preflight and dependency-sensitive attempts require `repro_command` metadata. A healthy container/port is not proof that the intended application is what is serving it.
 13. **Audit-environment interference is not a product counterexample.** Before ordinary feature probes, check for shared mutable queues/topics, DB schemas/databases, object-store buckets/prefixes, Redis namespaces, ports/processes, tenants/accounts, filesystem paths, or test fixtures that can race with the live target. If isolation cannot be established, record `BLOCKED`/`INCONCLUSIVE`; do not mislabel contamination as a product defect.
-14. **Parallel workers never write audit JSONL directly.** They may execute pre-registered probes concurrently, but only `auditctl.py` may serialize canonical attempt/hypothesis events. Canonical JSONL readers take the same cross-platform lock as writers, so summary/report/gate cannot observe a partial append.
+14. **Parallel workers never write audit JSONL directly.** They may execute pre-registered probes concurrently, but only the RFF control plane (`rff audit ...`, backed internally by `auditctl.py`) may serialize canonical attempt/hypothesis events. Canonical JSONL readers take the same cross-platform lock as writers, so summary/report/gate cannot observe a partial append.
 15. **Reporting language preserves epistemic scope.** `NOT_FALSIFIED` is the verdict. Do not rename it to “verified”, “proven”, “alive”, “fully working”, “verified reality”, or equivalent in reports, retrospectives, summaries, or chat conclusions.
 16. **One sealed audit run is immutable history.** After remediation, start a new audit workspace and, on harnesses with dedicated subagents such as Antigravity, spawn a fresh auditor instance. Do not append a post-fix run to a sealed pre-fix ledger.
+17. **Use the public RFF control plane.** Normal agent workflows use `rff audit ...`; direct `scripts/auditctl.py` use is reserved for compatibility/debugging and RFF development.
+18. **CONTROL, TARGET, and ILLUSTRATION are distinct.** `rff audit ...` commands manage canonical state; runtime commands such as `curl`, Docker, browser actions, SQL, or an application CLI exercise the target; documentation illustrations are not commands. Only the CONTROL plane may write canonical RFF state.
+19. **Canonical outputs are CLI-generated.** Agents must not manually author `audit-result.json`, `findings.json`, `result-manifest.json`, `audit-summary.md`, `feature-matrix.md`, `system-coverage.md`, or `audit-report.md`. Generate them with `rff audit report`; only `rff audit gate` may promote the canonical result to gate `PASSED`.
+20. **Audit-path authority belongs to RFF.** Never hard-code, infer, search for, or manually choose the active audit directory after initialization. Resolve it with `rff audit where` or let `rff audit ...` resolve it internally.
 
 The target application may naturally create runtime state while being exercised. That is allowed when it is part of the feature under audit. Do not mutate source/config merely to make the audit possible.
 
-## Default audit workspace
+## Audit output root and run storage
 
-Use a project-local workspace unless the user specifies another location:
+The default project-local output root is `.runtime-feature-audit`, but users may choose a safer project-relative location in `.rff.toml`:
 
-```text
-.runtime-feature-audit/
-├── audit-plan.json
-├── feature-inventory.json      # SYSTEM mode
-├── attempts.jsonl
-├── hypothesis-ledger.jsonl     # persistent investigation; hash-chained
-├── evidence/
-├── tracked-source-baseline.json
-├── feature-matrix.md
-├── system-coverage.md          # SYSTEM mode
-├── .active.json                # audit lifecycle marker; created by init
-├── .report-state.json          # fingerprints canonical state used for generated reports
-├── .complete.json              # written only after a successful final gate
-└── audit-report.md
+```toml
+[audit]
+output_dir = ".artifacts/rff"
 ```
 
-Do not put audit probes into the project's own test directories. `auditctl init` also snapshots hashes of Git-tracked files when Git is available; the final gate rejects tracked source/test mutation introduced during the audit.
+Do not assume the default path. Resolve canonical state through the CLI.
 
-## Deterministic controller
-
-Use the bundled `scripts/auditctl.py` rather than manually inventing log formats or completion checks. Bundled script paths are relative to the skill root. Keep the **target project root explicit** because skill scripts may execute from the skill directory rather than the project directory.
-
-In the commands below, `<project-root>` means the absolute target-project root. Always use an audit directory under that project. Examples use `python3` on POSIX; on default Windows Python installs substitute `py -3`.
+**CONTROL — execute:**
 
 ```bash
-python3 scripts/auditctl.py --help
-# Windows: py -3 scripts/auditctl.py --help
+rff audit where --format json
 ```
 
-The controller has these mandatory phases:
+The configured root contains immutable `runs/rff-<uuidv7>/...` directories plus `active.json` and `latest.json` pointers. Normal paths remain inside the project, avoid reserved/generated directories, and are at most four components deep; deeper placement requires explicit `--allow-deep-output`. Changing `.rff.toml` must not redirect an active run.
+
+Read [references/CONTROL-PLANE-OUTPUT.md](references/CONTROL-PLANE-OUTPUT.md) before execution.
+
+## Deterministic control plane
+
+Use the public `rff audit ...` CLI for canonical audit operations. `scripts/auditctl.py` remains the internal deterministic controller used by the CLI and for backward compatibility/debugging.
+
+The required lifecycle is:
 
 ```text
-init -> build plan -> validate-plan
-     -> attempt-start/attempt-batch START -> REAL RUNTIME ACTION -> attempt-finish/attempt-batch FINISH
-     -> suspicious/ambiguous? hypothesis-open/update -> information-gaining next probe
-     -> repeat until hypothesis terminal + required matrix complete
-     -> report -> gate --require-report
+rff audit init -> build plan -> rff audit plan validate
+     -> rff audit attempt start/batch -> TARGET RUNTIME ACTION -> rff audit attempt finish/batch
+     -> suspicious/ambiguous? rff audit hypothesis open/update -> information-gaining next probe
+     -> repeat until hypotheses terminal + required matrix complete
+     -> rff audit report -> rff audit gate -> rff audit present
 ```
 
 If the gate exits nonzero, continue the audit or report a genuine blocker. Do not work around the gate.
@@ -97,7 +93,7 @@ Choose the mode from the user's request:
 
 **Never silently downgrade `SYSTEM` to a representative sample.** Auditing one "important" feature, one subsystem, or a handful of examples does not satisfy a whole-project request.
 
-For `SYSTEM`, first read [references/SYSTEM-AUDIT.md](references/SYSTEM-AUDIT.md). Build `.runtime-feature-audit/feature-inventory.json` from multiple discovery surfaces and map every `IN_SCOPE` inventory item into `audit-plan.json`. The deterministic gate rejects unmapped in-scope items.
+For `SYSTEM`, first read [references/SYSTEM-AUDIT.md](references/SYSTEM-AUDIT.md). Build the active run's `feature-inventory.json` from multiple discovery surfaces and map every `IN_SCOPE` inventory item into `audit-plan.json`. The deterministic gate rejects unmapped in-scope items.
 
 The feature universe is runtime/product oriented: user-facing capabilities, public APIs/CLI/SDK operations, workflows, jobs/events that are product behavior, and public functions when a library/SDK exposes functions as its supported interface. Do not inflate the inventory with private helpers merely because they exist in source. If the user explicitly asks to audit every exported/public function, include those functions as inventory items.
 
@@ -130,21 +126,21 @@ Read [references/FALSIFICATION-METHOD.md](references/FALSIFICATION-METHOD.md) be
 
 ### Phase 2 — Create and validate the falsification plan
 
-Initialize once:
+Initialize once.
+
+**CONTROL — execute:**
 
 ```bash
-python3 scripts/auditctl.py init \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
-  --target-root "<project-root>" \
+rff audit init \
   --project-name "<project>" \
   --environment "<local-or-authorized-staging>" \
   --scope "<requested scope>" \
   --mode <feature|system>
 ```
 
-Populate `<project-root>/.runtime-feature-audit/audit-plan.json` using [assets/audit-plan.schema.json](assets/audit-plan.schema.json).
+Resolve the active run with `rff audit where --format json`, then populate that run's `audit-plan.json` using [assets/audit-plan.schema.json](assets/audit-plan.schema.json). Do not assume a fixed `.runtime-feature-audit` path.
 
-For `SYSTEM` mode, first populate `feature-inventory.json` using [assets/feature-inventory.schema.json](assets/feature-inventory.schema.json). Every `IN_SCOPE` inventory ID must map 1:1 to a planned feature ID. Do not mark a discovered feature `EXCLUDED` merely to shorten the audit.
+For `SYSTEM` mode, first populate the active run's `feature-inventory.json` using [assets/feature-inventory.schema.json](assets/feature-inventory.schema.json). Every `IN_SCOPE` inventory ID must map 1:1 to a planned feature ID. Do not mark a discovered feature `EXCLUDED` merely to shorten the audit.
 
 For every feature declare these shape flags because the gate uses them to require relevant probe families:
 
@@ -154,10 +150,12 @@ For every feature declare these shape flags because the gate uses them to requir
 
 The plan must set both `target.startup_path` and `target.runtime_identity_expectation`, and contain three required `ENVIRONMENT` probes: `environment_start`, `runtime_identity`, and `environment_collision`. `runtime_identity` must establish what executable/server/container entrypoint is actually serving the target; `environment_collision` must examine applicable shared mutable resources before ordinary feature probes.
 
-Then validate:
+Then validate.
+
+**CONTROL — execute:**
 
 ```bash
-python3 scripts/auditctl.py validate-plan --audit-dir "<project-root>/.runtime-feature-audit"
+rff audit plan validate
 ```
 
 Do not execute feature probes until this passes.
@@ -178,11 +176,10 @@ If credentials/dependencies are unavailable, record affected attempts `BLOCKED`.
 
 ### Phase 4 — Execute probes with two-phase logging
 
-**Before the runtime action:**
+**Before the runtime action — CONTROL:**
 
 ```bash
-python3 scripts/auditctl.py attempt-start \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
+rff audit attempt start \
   --feature-id <feature-id> \
   --probe-id <probe-id> \
   --action "<exact user-visible action>" \
@@ -193,17 +190,17 @@ Capture the returned `attempt_id`.
 
 Then perform the actual UI/API/CLI/runtime action.
 
-**Immediately afterward:**
+**Immediately afterward — CONTROL:**
 
 ```bash
-python3 scripts/auditctl.py attempt-finish \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
+rff audit attempt finish \
   --attempt-id <attempt-id> \
   --observed "<what actually happened>" \
   --side-effect-check "<downstream/state observation>" \
   --evidence <relative-evidence-path> \
   --result <SURVIVED|FALSIFIED|BLOCKED|INCONCLUSIVE> \
   --failure-pattern <pattern> \
+  --severity <CRITICAL|HIGH|MEDIUM|LOW> \
   --confidence <HIGH|MEDIUM|LOW>
 ```
 
@@ -211,15 +208,19 @@ If a probe crashes or times out, still finish it as `BLOCKED` or `INCONCLUSIVE` 
 
 For large `SYSTEM` audits, prefer **two-phase batch logging** instead of hundreds of per-probe CLI calls. Prepare one JSON document for a group of `STARTED` events, register them atomically, execute those already-registered probes (sequentially or in parallel), then ingest one `FINISH` batch.
 
+**CONTROL — register the batch:**
+
 ```bash
-python3 scripts/auditctl.py attempt-batch \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
+rff audit attempt batch \
   --input starts.json
+```
 
-# execute the registered runtime probes
+**TARGET — adapt to the audited product:** execute only the already-registered runtime actions with the product's real UI/API/CLI. Do not treat the example target command as an RFF tool.
 
-python3 scripts/auditctl.py attempt-batch \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
+**CONTROL — record observed results:**
+
+```bash
+rff audit attempt batch \
   --input finishes.json
 ```
 
@@ -233,9 +234,10 @@ Read [references/ATTEMPT-LOGGING.md](references/ATTEMPT-LOGGING.md) before the f
 
 When an attempt produces a failure or suspicious result that has multiple plausible explanations, do not stop at the first interpretation. Read [references/PERSISTENT-INVESTIGATION.md](references/PERSISTENT-INVESTIGATION.md) and open a bounded hypothesis.
 
+**CONTROL — execute:**
+
 ```bash
-python3 scripts/auditctl.py hypothesis-open \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
+rff audit hypothesis open \
   --feature-id <feature-id> \
   --statement "<falsifiable explanation>" \
   --trigger-attempt-id <attempt-id> \
@@ -243,16 +245,18 @@ python3 scripts/auditctl.py hypothesis-open \
   --max-attempts 6
 ```
 
-Attach subsequent attempts to the hypothesis. If the same planned probe is repeated, state what changed or why an unchanged retry is informative:
+Attach subsequent attempts to the hypothesis. If the same planned probe is repeated, state what changed or why an unchanged retry is informative.
+
+**CONTROL — execute:**
 
 ```bash
-python3 scripts/auditctl.py attempt-start \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
+rff audit attempt start \
   --feature-id <feature-id> \
   --probe-id <probe-id> \
   --hypothesis-id <hypothesis-id> \
   --changed-variable "<actual information-bearing change>" \
   --escalation-stage <0-11>
+```
 
 For intermittent behavior where an identical retry is itself the experiment, use `--retry-reason` instead of inventing a fake changed variable. Update the hypothesis after each informative step and resolve it to `REFUTED`, `CONFIRMED`, `BLOCKED`, or `BUDGET_EXHAUSTED`. `OPEN` and `SUPPORTED` hypotheses block final completion.
 
@@ -300,27 +304,39 @@ Do not infer `HARDCODED`, `MOCK_ONLY`, or `TODO` from source appearance alone.
 
 Read [references/EVIDENCE-AND-VERDICTS.md](references/EVIDENCE-AND-VERDICTS.md) before assigning final labels.
 
-### Phase 8 — Generate report and pass final gate
+### Phase 8 — Generate canonical result, pass gate, and present
 
-Generate machine-grounded outputs from the plan and append-only log:
+Generate the canonical machine result and all deterministic projections.
 
-```bash
-python3 scripts/auditctl.py report --audit-dir "<project-root>/.runtime-feature-audit"
-```
-
-Then run the completion/evidence gate:
+**CONTROL — execute:**
 
 ```bash
-python3 scripts/auditctl.py gate \
-  --audit-dir "<project-root>/.runtime-feature-audit" \
-  --require-report
+rff audit report
 ```
 
-**Only finish when this command exits 0.** A completed audit can contain many `FALSIFIED` findings. The gate checks integrity and completeness, not feature health. It also rejects reports generated before the latest attempt, hypothesis update, plan change, or SYSTEM inventory change; regenerate the report whenever canonical audit state changes.
+This creates `audit-result.json`, `findings.json`, `result-manifest.json`, `audit-summary.md`, `feature-matrix.md`, `audit-report.md`, and SYSTEM coverage when applicable. Do not create or edit these files manually.
 
-If you write a separate retrospective or human-facing summary, run `auditctl terminology-check --input <file>` before publishing it. This catches common verdict inflation such as `Run 2 (Verified)` or `Verified Reality` when the machine verdict is only `NOT_FALSIFIED`.
+Run the completion/integrity gate.
 
-After a sealed audit is followed by remediation, **do not reuse the sealed workspace**. Use a new directory such as `.runtime-feature-audit-run2`; in Antigravity/other subagent harnesses, spawn a fresh auditor instance rather than messaging an idle/completed auditor.
+**CONTROL — execute:**
+
+```bash
+rff audit gate
+```
+
+**Only finish when this exits 0.** A completed audit may contain many `FALSIFIED` findings. Audit validity is not product health. On success the gate promotes `audit-result.json` from `gate: PENDING` to `gate: PASSED`, seals the run, and refreshes the canonical result digest.
+
+Use deterministic presentation as the factual basis of the final reply.
+
+**CONTROL — execute:**
+
+```bash
+rff audit present --presentation chat
+```
+
+The agent may explain this output but must not change gate status, coverage counts, verdict counts, finding IDs, or classifications.
+
+Use `rff audit compare --baseline <run> --current <run>` for pairwise NEW/PERSISTING/RESOLVED finding comparison. Use `rff audit export --export-format sarif` only as an interoperability projection; SARIF is not canonical state.
 
 ## Verdict semantics
 
@@ -379,13 +395,16 @@ Before returning a final audit result, all of the following must be true:
 - the three preflight probes are complete: startup health `SURVIVED`, runtime identity was observed against the declared expectation, and environment collision/isolation `SURVIVED`; preflight/dependency-sensitive attempts carry reproduction metadata,
 - every required probe has a terminal attempt,
 - no attempt remains open,
-- bundled Draft 7 JSON schemas are enforced by the vendored standards-compliant `fastjsonschema` engine, and RFF semantic validators accept the canonical plan/inventory/events,
+- legacy plan/inventory/event and canonical result schemas remain Draft 7 and are enforced by the bundled validator; canonical/control JSON also passes strict duplicate-key/non-finite/JCS-profile ingestion,
 - the attempt and hypothesis hash chains validate,
 - no hypothesis remains `OPEN` or `SUPPORTED`,
 - falsified findings have effect/evidence corroboration,
 - survived stateful probes have downstream evidence where required,
 - reports were generated from the latest canonical plan/log/hypothesis/inventory state (report freshness gate passes),
 - Git-tracked source/test files are unchanged from the audit baseline when that gate is available,
-- `auditctl gate --require-report` exits 0.
+- `rff audit report` generated the canonical structured outputs from current ledgers,
+- `result-manifest.json` inputs and outputs re-derive cleanly from the current plan/inventory/ledgers and canonical result projections,
+- `rff audit gate` exits 0 and promotes the canonical result to gate `PASSED`,
+- the final response is grounded in `rff audit present`, not reconstructed from agent memory.
 
 If any item is false, the audit is incomplete rather than successful.

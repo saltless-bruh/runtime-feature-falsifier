@@ -1,0 +1,23 @@
+{
+  "audit_id": "legacy-digest-v292",
+  "canonicalization": "RFC8785-JCS-float-free-profile",
+  "inputs": {
+    "attempt_chain_head": "467aedd02775a6c93bd74e4b0492868da8e478562e0f5d1e95f5208e0363093c",
+    "hypothesis_chain_head": "",
+    "inventory_sha256": null,
+    "plan_sha256": "7221d79b7861b4e669f63cf1144723405a521a43a184c0b07a702144b3d6b005"
+  },
+  "outputs": {
+    "audit_report_sha256": "aa27d1bdbcbb597058a06700e9d9f0113e61c3de8cc88d48f21108958027a66e",
+    "audit_result_jcs_sha256": "9cea60d88e5cebf6265f89d63954ceb9257aea02a0d50395aa7b054ab42f4dae",
+    "audit_summary_sha256": "3fee62bc14b741751c92d89e92a3386457db13043a0720541b12b427fb07c5f3",
+    "feature_matrix_sha256": "85be3cd83a1891dd0f2aaae7dd16c874e873390c3d17848bfe0000c85c567063",
+    "findings_jcs_sha256": "693413e66f0c3454898676ee6ce5f4d2956ba8c540635252a38e3b40197ec491",
+    "system_coverage_sha256": null
+  },
+  "producer": {
+    "name": "runtime-feature-falsifier",
+    "version": "2.9.2"
+  },
+  "schema_version": "1.0.0"
+}
